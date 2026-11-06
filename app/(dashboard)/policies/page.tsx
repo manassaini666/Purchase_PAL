@@ -6,8 +6,8 @@ import { policy as initialPolicy, Policy } from "@/lib/mock";
 
 export default function PoliciesPage() {
   const [ruleText, setRuleText] = useState(
-    "Allow agent_shopper to spend up to $50 per transaction at merchant_a and merchant_b. Daily budget is $100 and monthly budget is $300. Require my approval above $20. Block gift_cards and crypto. Only allow purchases between 08:00 and 22:00 IST."
-  );
+  "Allow Shopper Agent to spend up to $50 per transaction at Merchant A and Merchant B. Daily budget is $100 and monthly budget is $300. Require my approval above $20. Block gift cards and crypto. Only allow purchases between 08:00 and 22:00 IST."
+);
   const [compiledPolicy, setCompiledPolicy] = useState<Policy | null>(initialPolicy);
   const [isCompiling, setIsCompiling] = useState(false);
   const [isConfirmed, setIsConfirmed] = useState(false);
@@ -38,7 +38,7 @@ export default function PoliciesPage() {
     <div className="space-y-6">
       <PageHeader
         title="Spending Policies"
-        description="Write rules in plain language. AgentGuard compiles them into deterministic JSON mandates."
+        description="Write rules in plain language. Purchase Pal compiles them into deterministic JSON mandates."
       />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="flex flex-col rounded-xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
