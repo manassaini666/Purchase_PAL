@@ -1,54 +1,77 @@
 import { NextResponse } from 'next/server';
 
-// Configuration for cross-origin frontend testing
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*', // Allows your frontend teammate to connect safely
+  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
-// 1. Handle the Compiler POST request
 export async function POST(request) {
   try {
-    // Reads data sent from frontend (e.g., { text: "Your prompt or policy text here" })
     const body = await request.json();
     const { text } = body;
 
     if (!text) {
       return NextResponse.json(
-        { success: false, error: "Missing required text field in body" },
+        { success: false, error: "Missing required 'text' field" },
         { status: 400, headers: corsHeaders }
       );
     }
 
-    /* 
-      TODO: Member A & B -> Integrate your LLM framework here.
-      Example: Call OpenAI, Anthropic, or a custom local model.
-    */
-    const mockCompiledOutput = `[Compiled Output for]: ${text}`;
+    const apiKey = process.env.GROQ_API_KEY;
+    const modelToUse = process.env.MODEL_COMPILER || 'llama-3.3-70b-versatile';
 
-    // Return the successful response to the frontend UI
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: modelToUse,
+        messages: [
+          { role: 'system', content: 'You are an expert compiler agent. Process and compile the policy input text neatly.' },
+          { role: 'user', content: text }
+        ],
+      }),
+    });
+
+    const rawText = await response.text();
+    let data;
+    try {
+      data = JSON.parse(rawText);
+    } catch (e) {
+      return NextResponse.json(
+        { success: false, error: "Groq returned an invalid text response structure", rawOutput: rawText },
+        { status: response.status, headers: corsHeaders }
+      );
+    }
+
+    if (!response.ok) {
+      return NextResponse.json(
+        { success: false, error: data.error?.message || "Groq API internal error" },
+        { status: response.status, headers: corsHeaders }
+      );
+    }
+
     return NextResponse.json(
       { 
         success: true, 
         message: "Compilation completed successfully!", 
-        compiledData: mockCompiledOutput 
+        compiledData: data.choices && data.choices[0] && data.choices[0].message ? data.choices[0].message.content : "" 
       },
       { status: 200, headers: corsHeaders }
     );
 
   } catch (error) {
+    console.error("Server compiler runtime exception:", error);
     return NextResponse.json(
-      { success: false, error: "Internal server or invalid JSON error" },
+      { success: false, error: "Internal server error loop" },
       { status: 500, headers: corsHeaders }
     );
   }
 }
 
-// 2. Handle the CORS Preflight check from browser
 export async function OPTIONS() {
-  return new NextResponse(null, {
-    status: 204,
-    headers: corsHeaders,
-  });
+  return new NextResponse(null, { status: 204, headers: corsHeaders });
 }
