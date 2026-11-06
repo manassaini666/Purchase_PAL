@@ -49,7 +49,9 @@ export default function ApprovalsPage() {
                       ${item.request.amount.toFixed(2)} {item.request.currency}
                     </span>
                     <span className="text-sm text-zinc-500">
-                      at <strong>{item.request.merchant_id}</strong>
+                      at <strong>{item.request.merchant_id
+                                   .replace(/_/g, " ")
+                                    .replace(/\b\w/g, (c) => c.toUpperCase())}</strong>
                     </span>
                   </div>
                 </div>

@@ -100,7 +100,7 @@ function writeDoc(orderId) {
 }
 
 async function main() {
-  console.log("=== AgentGuard PayPal Sandbox spike ===\n");
+  console.log("=== Purchase Pal PayPal Sandbox spike ===\n");
   if (!loadEnvFile(".env.local")) {
     console.log("Warning: .env.local not found in this folder. Run from the project root.");
   }

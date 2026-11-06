@@ -9,7 +9,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           <div className="flex items-center gap-6">
             <Link href="/policies" className="flex items-center gap-2 font-bold tracking-tight">
               <span className="inline-block h-3 w-3 rounded-full bg-emerald-500" />
-              <span>AgentGuard</span>
+              <span>Purchase Pal</span>
             </Link>
             <nav className="flex items-center gap-4 text-sm font-medium text-zinc-600 dark:text-zinc-400">
               <Link href="/policies" className="hover:text-zinc-900 dark:hover:text-zinc-100">Policies</Link>
