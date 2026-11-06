@@ -1,7 +1,17 @@
+
+import { redirect } from "next/navigation";
 import Image from "next/image";
 
 export default function Home() {
+  const needsToAcceptPolicies = true; // Replace this with your actual authentication/status check
+
+  if (needsToAcceptPolicies) {
+    redirect("/policies");
+  }
+
   return (
+    <div className="flex flex-col ...">
+    
     <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
       <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
         <Image
@@ -64,6 +74,9 @@ export default function Home() {
           </a>
         </div>
       </main>
+    </div>
+  
+/* Rest of your dashboard UI code here (lines 4 to 69) */
     </div>
   );
 }
