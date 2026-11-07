@@ -47,7 +47,7 @@ export function DecisionCard({ decision }: { decision: DecisionRecord }) {
             {badgeLabels[decision.decision]}
           </span>
           <span className="font-semibold text-zinc-900 dark:text-zinc-100">
-            ${decision.request.amount.toFixed(2)} {decision.request.currency}
+            ${decision.request?.amount?.toFixed(2) ?? "0.00"} {decision.request?.currency ?? "USD"}
           </span>
           <span className="text-xs text-zinc-500">
             @{" "}
