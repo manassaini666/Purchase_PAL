@@ -1,5 +1,5 @@
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -7,66 +7,24 @@ generator client {
   provider = "prisma-client-js"
 }
 
-model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  createdAt DateTime @default(now()) @map("created_at")
-  agents    Agent[]
-
-  @@map("users")
-}
-
-model Agent {
-  id           String           @id @default(uuid())
-  userId       String           @map("user_id")
-  name         String
-  createdAt    DateTime         @default(now()) @map("created_at")
-  user         User             @relation(fields: [userId], references: [id])
-  policies     Policy[]
-  transactions TransactionLog[]
-
-  @@map("agents")
-}
-
 model Policy {
-  policyId     String           @id @default(uuid()) @map("policy_id")
-  agentId      String           @map("agent_id")
-  status       PolicyStatus     @default(ACTIVE)
-  rawPrompt    String           @map("raw_prompt")
-  mandateJson  Json             @map("mandate_json")
-  expiresAt    DateTime         @map("expires_at")
-  createdAt    DateTime         @default(now()) @map("created_at")
-  agent        Agent            @relation(fields: [agentId], references: [id])
-  transactions TransactionLog[]
-
-  @@map("policies")
+  id                    String   @id @default(uuid())
+  maxSpendPerTx         Float    @default(63.00)
+  manualApprovalAbove   Float    @default(1.00)
+  dailyBudget           Float    @default(150.00)
+  monthlyBudget         Float    @default(300.00)
+  allowedMerchants      String   @default("Merchant A, Merchant B")
+  blockedCategories     String   @default("Gift Cards, Crypto")
+  allowedStartTime      String   @default("08:00")
+  allowedEndTime        String   @default("22:00")
+  updatedAt             DateTime @updatedAt
 }
 
-model TransactionLog {
-  id           String            @id @default(uuid())
-  agentId      String            @map("agent_id")
-  policyId     String            @map("policy_id")
-  merchant     String
-  amount       Decimal           @db.Decimal(10, 2)
-  currency     String            @default("USD")
-  category     String
-  status       TransactionStatus
-  blockReason  String?           @map("block_reason")
-  timestamp    DateTime          @default(now())
-  agent        Agent             @relation(fields: [agentId], references: [id])
-  policy       Policy            @relation(fields: [policyId], references: [policyId])
-
-  @@map("transaction_logs")
-}
-
-enum PolicyStatus {
-  ACTIVE
-  INACTIVE
-  EXPIRED
-}
-
-enum TransactionStatus {
-  APPROVED
-  BLOCKED
-  PENDING_APPROVAL
+model Transaction {
+  id        String   @id @default(uuid())
+  amount    Float
+  merchant  String
+  category  String
+  status    String   @default("APPROVED") // APPROVED, PENDING, BLOCKED
+  createdAt DateTime @default(now())
 }

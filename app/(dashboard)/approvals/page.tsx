@@ -20,6 +20,7 @@ export default function ApprovalsPage() {
     window.addEventListener("storage", checkTheme);
     window.addEventListener("themeChange", checkTheme);
 
+    
     const savedPolicy = localStorage.getItem("activePolicy");
     if (savedPolicy) {
       try {
