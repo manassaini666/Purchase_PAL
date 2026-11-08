@@ -1,10 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { PageHeader } from "@/components/pageheader";
 
 export default function PoliciesPage() {
-  // Form state fields instead of a paragraph
   const [perTransactionMax, setPerTransactionMax] = useState<number>(50);
   const [dailyBudget, setDailyBudget] = useState<number>(100);
   const [monthlyBudget, setMonthlyBudget] = useState<number>(300);
@@ -16,9 +14,20 @@ export default function PoliciesPage() {
 
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDark, setIsDark] = useState(true);
 
-  // Load saved preferences from localStorage on mount
+  // Sync theme with localStorage and listen for changes
   useEffect(() => {
+    const checkTheme = () => {
+      const saved = localStorage.getItem("theme");
+      setIsDark(saved ? saved === "dark" : true);
+    };
+    checkTheme();
+
+    // Listen for storage changes when toggle is clicked
+    window.addEventListener("storage", checkTheme);
+    const interval = setInterval(checkTheme, 200); // Polling for instant UI sync
+
     const savedPolicy = localStorage.getItem("activePolicy");
     if (savedPolicy) {
       try {
@@ -34,9 +43,13 @@ export default function PoliciesPage() {
         console.error("Failed to parse saved policy", e);
       }
     }
+
+    return () => {
+      window.removeEventListener("storage", checkTheme);
+      clearInterval(interval);
+    };
   }, []);
 
-  // Build the active mandate object dynamically from form inputs
   const activeMandate = {
     policy_id: "pol_001",
     agent_id: "agent_shopper",
@@ -69,7 +82,6 @@ export default function PoliciesPage() {
       const data = await res.json();
       if (res.ok && data.success) {
         setIsConfirmed(true);
-        // Save to localStorage so Live Feed & Approvals instantly sync
         localStorage.setItem("activePolicy", JSON.stringify(activeMandate));
       } else {
         alert("Failed to save policy");
@@ -82,147 +94,199 @@ export default function PoliciesPage() {
   };
 
   return (
-    <div className="space-y-6 p-8 max-w-7xl mx-auto text-zinc-100">
+    <div className="space-y-6 max-w-7xl mx-auto">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-white">Spending Policies</h1>
-        <p className="text-sm text-zinc-400 mt-1">
+        <h1 className={`text-2xl font-bold tracking-tight ${isDark ? "text-white" : "text-zinc-900"}`}>Spending Policies</h1>
+        <p className={`text-sm mt-1 ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>
           Configure guardrails instantly using interactive controls. Purchase Pal generates deterministic JSON mandates in real time.
         </p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Left Column: Interactive Form Controls */}
-        <div className="flex flex-col rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6 shadow-xl backdrop-blur space-y-4">
+        <div className={`flex flex-col rounded-2xl border p-6 shadow-xl backdrop-blur space-y-4 transition-colors ${
+          isDark 
+            ? "border-zinc-800 bg-zinc-900/60 text-zinc-100" 
+            : "border-zinc-200 bg-white text-zinc-900"
+        }`}>
           <div className="flex items-center justify-between mb-1">
-            <label className="text-sm font-semibold text-zinc-200">
+            <label className={`text-sm font-semibold ${isDark ? "text-zinc-200" : "text-zinc-900"}`}>
               1. Policy Configuration Controls
             </label>
-            <span className="text-xs text-emerald-400 font-mono bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-800/50">
+            <span className={`text-xs font-mono px-2 py-0.5 rounded border ${
+              isDark 
+                ? "text-emerald-400 bg-emerald-950/80 border-emerald-800/50" 
+                : "text-emerald-700 bg-emerald-50 border-emerald-200"
+            }`}>
               Instant Sync Active
             </span>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-xs text-zinc-400 font-medium">Max Spend / Tx ($)</label>
+              <label className={`text-xs font-medium ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>Max Spend / Tx ($)</label>
               <input
                 type="number"
                 value={perTransactionMax}
                 onChange={(e) => { setPerTransactionMax(Number(e.target.value)); setIsConfirmed(false); }}
-                className="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-950/80 p-3 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+                className={`mt-1 w-full rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono transition-colors ${
+                  isDark 
+                    ? "border-zinc-800 bg-zinc-950/80 text-zinc-200" 
+                    : "border-zinc-300 bg-zinc-50 text-zinc-900"
+                }`}
               />
             </div>
             <div>
-              <label className="text-xs text-zinc-400 font-medium">Manual Approval Above ($)</label>
+              <label className={`text-xs font-medium ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>Manual Approval Above ($)</label>
               <input
                 type="number"
                 value={approvalThreshold}
                 onChange={(e) => { setApprovalThreshold(Number(e.target.value)); setIsConfirmed(false); }}
-                className="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-950/80 p-3 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+                className={`mt-1 w-full rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono transition-colors ${
+                  isDark 
+                    ? "border-zinc-800 bg-zinc-950/80 text-zinc-200" 
+                    : "border-zinc-300 bg-zinc-50 text-zinc-900"
+                }`}
               />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-xs text-zinc-400 font-medium">Daily Budget ($)</label>
+              <label className={`text-xs font-medium ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>Daily Budget ($)</label>
               <input
                 type="number"
                 value={dailyBudget}
                 onChange={(e) => { setDailyBudget(Number(e.target.value)); setIsConfirmed(false); }}
-                className="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-950/80 p-3 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+                className={`mt-1 w-full rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono transition-colors ${
+                  isDark 
+                    ? "border-zinc-800 bg-zinc-950/80 text-zinc-200" 
+                    : "border-zinc-300 bg-zinc-50 text-zinc-900"
+                }`}
               />
             </div>
             <div>
-              <label className="text-xs text-zinc-400 font-medium">Monthly Budget ($)</label>
+              <label className={`text-xs font-medium ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>Monthly Budget ($)</label>
               <input
                 type="number"
                 value={monthlyBudget}
                 onChange={(e) => { setMonthlyBudget(Number(e.target.value)); setIsConfirmed(false); }}
-                className="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-950/80 p-3 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+                className={`mt-1 w-full rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono transition-colors ${
+                  isDark 
+                    ? "border-zinc-800 bg-zinc-950/80 text-zinc-200" 
+                    : "border-zinc-300 bg-zinc-50 text-zinc-900"
+                }`}
               />
             </div>
           </div>
 
           <div>
-            <label className="text-xs text-zinc-400 font-medium">Allowed Merchants (comma-separated)</label>
+            <label className={`text-xs font-medium ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>Allowed Merchants (comma-separated)</label>
             <input
               type="text"
               value={allowedMerchants}
               onChange={(e) => { setAllowedMerchants(e.target.value); setIsConfirmed(false); }}
-              className="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-950/80 p-3 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+              className={`mt-1 w-full rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono transition-colors ${
+                isDark 
+                  ? "border-zinc-800 bg-zinc-950/80 text-zinc-200" 
+                  : "border-zinc-300 bg-zinc-50 text-zinc-900"
+              }`}
             />
           </div>
 
           <div>
-            <label className="text-xs text-zinc-400 font-medium">Blocked Categories (comma-separated)</label>
+            <label className={`text-xs font-medium ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>Blocked Categories (comma-separated)</label>
             <input
               type="text"
               value={blockedCategories}
               onChange={(e) => { setBlockedCategories(e.target.value); setIsConfirmed(false); }}
-              className="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-950/80 p-3 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+              className={`mt-1 w-full rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono transition-colors ${
+                isDark 
+                  ? "border-zinc-800 bg-zinc-950/80 text-zinc-200" 
+                  : "border-zinc-300 bg-zinc-50 text-zinc-900"
+              }`}
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-xs text-zinc-400 font-medium">Allowed Start Time</label>
+              <label className={`text-xs font-medium ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>Allowed Start Time</label>
               <input
                 type="text"
                 value={startTime}
                 onChange={(e) => { setStartTime(e.target.value); setIsConfirmed(false); }}
-                className="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-950/80 p-3 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+                className={`mt-1 w-full rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono transition-colors ${
+                  isDark 
+                    ? "border-zinc-800 bg-zinc-950/80 text-zinc-200" 
+                    : "border-zinc-300 bg-zinc-50 text-zinc-900"
+                }`}
               />
             </div>
             <div>
-              <label className="text-xs text-zinc-400 font-medium">Allowed End Time</label>
+              <label className={`text-xs font-medium ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>Allowed End Time</label>
               <input
                 type="text"
                 value={endTime}
                 onChange={(e) => { setEndTime(e.target.value); setIsConfirmed(false); }}
-                className="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-950/80 p-3 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+                className={`mt-1 w-full rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono transition-colors ${
+                  isDark 
+                    ? "border-zinc-800 bg-zinc-950/80 text-zinc-200" 
+                    : "border-zinc-300 bg-zinc-50 text-zinc-900"
+                }`}
               />
             </div>
           </div>
         </div>
 
         {/* Right Column: Structured Mandate Summary Preview */}
-        <div className="flex flex-col justify-between rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6 shadow-xl backdrop-blur">
+        <div className={`flex flex-col justify-between rounded-2xl border p-6 shadow-xl backdrop-blur transition-colors ${
+          isDark 
+            ? "border-zinc-800 bg-zinc-900/60 text-zinc-100" 
+            : "border-zinc-200 bg-white text-zinc-900"
+        }`}>
           <div>
             <div className="flex items-center justify-between mb-4">
-              <span className="text-sm font-semibold text-zinc-200">2. Structured Mandate Summary</span>
-              <span className="rounded-full bg-emerald-950/80 border border-emerald-800/50 px-2.5 py-0.5 font-mono text-[11px] text-emerald-400 font-medium">
+              <span className={`text-sm font-semibold ${isDark ? "text-zinc-200" : "text-zinc-900"}`}>2. Structured Mandate Summary</span>
+              <span className={`rounded-full px-2.5 py-0.5 font-mono text-[11px] font-medium border ${
+                isDark 
+                  ? "bg-emerald-950/80 border-emerald-800/50 text-emerald-400" 
+                  : "bg-emerald-50 border-emerald-200 text-emerald-700"
+              }`}>
                 zod validated
               </span>
             </div>
 
-            <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/80 p-5 space-y-3.5 text-sm text-zinc-300">
-              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Summary of active rules:</p>
+            <div className={`rounded-xl border p-5 space-y-3.5 text-sm transition-colors ${
+              isDark 
+                ? "border-zinc-800/80 bg-zinc-950/80 text-zinc-300" 
+                : "border-zinc-200 bg-zinc-50 text-zinc-700"
+            }`}>
+              <p className={`text-xs font-semibold uppercase tracking-wider ${isDark ? "text-zinc-500" : "text-zinc-400"}`}>Summary of active rules:</p>
               
               <ul className="space-y-2.5 text-xs sm:text-sm">
                 <li className="flex items-start gap-2">
-                  <span className="text-emerald-400 font-bold">•</span>
-                  <span><strong className="text-white">Max Spend:</strong> ${perTransactionMax}.00 per transaction</span>
+                  <span className={`font-bold ${isDark ? "text-emerald-400" : "text-emerald-600"}`}>•</span>
+                  <span><strong className={isDark ? "text-white" : "text-zinc-900"}>Max Spend:</strong> ${perTransactionMax}.00 per transaction</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-emerald-400 font-bold">•</span>
-                  <span><strong className="text-white">Budgets:</strong> ${dailyBudget}.00 daily / ${monthlyBudget}.00 monthly</span>
+                  <span className={`font-bold ${isDark ? "text-emerald-400" : "text-emerald-600"}`}>•</span>
+                  <span><strong className={isDark ? "text-white" : "text-zinc-900"}>Budgets:</strong> ${dailyBudget}.00 daily / ${monthlyBudget}.00 monthly</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-emerald-400 font-bold">•</span>
-                  <span><strong className="text-white">Manual Approvals:</strong> Required for amounts over ${approvalThreshold}.00</span>
+                  <span className={`font-bold ${isDark ? "text-emerald-400" : "text-emerald-600"}`}>•</span>
+                  <span><strong className={isDark ? "text-white" : "text-zinc-900"}>Manual Approvals:</strong> Required for amounts over ${approvalThreshold}.00</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-emerald-400 font-bold">•</span>
-                  <span><strong className="text-white">Allowed Places:</strong> {allowedMerchants}</span>
+                  <span className={`font-bold ${isDark ? "text-emerald-400" : "text-emerald-600"}`}>•</span>
+                  <span><strong className={isDark ? "text-white" : "text-zinc-900"}>Allowed Places:</strong> {allowedMerchants}</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-emerald-400 font-bold">•</span>
-                  <span><strong className="text-white">Blocked Categories:</strong> {blockedCategories}</span>
+                  <span className={`font-bold ${isDark ? "text-emerald-400" : "text-emerald-600"}`}>•</span>
+                  <span><strong className={isDark ? "text-white" : "text-zinc-900"}>Blocked Categories:</strong> {blockedCategories}</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-emerald-400 font-bold">•</span>
-                  <span><strong className="text-white">Time Window:</strong> {startTime} to {endTime} IST</span>
+                  <span className={`font-bold ${isDark ? "text-emerald-400" : "text-emerald-600"}`}>•</span>
+                  <span><strong className={isDark ? "text-white" : "text-zinc-900"}>Time Window:</strong> {startTime} to {endTime} IST</span>
                 </li>
               </ul>
             </div>
@@ -231,7 +295,7 @@ export default function PoliciesPage() {
           <button
             onClick={handleActivate}
             disabled={isSaving}
-            className="mt-6 w-full inline-flex items-center justify-center rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 px-4 py-3 text-white font-semibold text-sm shadow-lg shadow-emerald-950/50 transition-all disabled:opacity-50"
+            className="mt-6 w-full inline-flex items-center justify-center rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 px-4 py-3 text-white font-semibold text-sm shadow-lg shadow-emerald-950/20 transition-all disabled:opacity-50"
           >
             {isSaving ? "Activating..." : isConfirmed ? "✓ Policy Confirmed & Active" : "Confirm & Activate Policy"}
           </button>
