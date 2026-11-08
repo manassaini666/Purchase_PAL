@@ -2,28 +2,33 @@
 
 import { useState, useEffect } from "react";
 import { PageHeader } from "@/components/pageheader";
-import { policy as initialPolicy, Policy } from "@/lib/mock";
 
 export default function PoliciesPage() {
-  const [ruleText, setRuleText] = useState(
-    "Allow Shopper Agent to spend up to $50 per transaction at Merchant A and Merchant B. Daily budget is $100 and monthly budget is $300. Require my approval above $100. Block gift cards and crypto. Only allow purchases between 08:00 and 22:00 IST."
-  );
-  const [compiledPolicy, setCompiledPolicy] = useState<Policy | null>(initialPolicy);
-  const [isCompiling, setIsCompiling] = useState(false);
+  // Form state fields instead of a paragraph
+  const [perTransactionMax, setPerTransactionMax] = useState<number>(50);
+  const [dailyBudget, setDailyBudget] = useState<number>(100);
+  const [monthlyBudget, setMonthlyBudget] = useState<number>(300);
+  const [approvalThreshold, setApprovalThreshold] = useState<number>(25);
+  const [allowedMerchants, setAllowedMerchants] = useState<string>("Merchant A, Merchant B");
+  const [blockedCategories, setBlockedCategories] = useState<string>("Gift Cards, Crypto");
+  const [startTime, setStartTime] = useState<string>("08:00");
+  const [endTime, setEndTime] = useState<string>("22:00");
+
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Load saved rule text and active policy on mount
+  // Load saved preferences from localStorage on mount
   useEffect(() => {
-    const savedRule = localStorage.getItem("ruleText");
     const savedPolicy = localStorage.getItem("activePolicy");
-    if (savedRule) {
-      setRuleText(savedRule);
-    }
     if (savedPolicy) {
       try {
         const parsed = JSON.parse(savedPolicy);
-        setCompiledPolicy(parsed);
+        if (parsed.per_transaction_max) setPerTransactionMax(parsed.per_transaction_max);
+        if (parsed.daily_budget) setDailyBudget(parsed.daily_budget);
+        if (parsed.monthly_budget) setMonthlyBudget(parsed.monthly_budget);
+        if (parsed.approval_required_above) setApprovalThreshold(parsed.approval_required_above);
+        if (parsed.allowed_hours?.start) setStartTime(parsed.allowed_hours.start);
+        if (parsed.allowed_hours?.end) setEndTime(parsed.allowed_hours.end);
         setIsConfirmed(true);
       } catch (e) {
         console.error("Failed to parse saved policy", e);
@@ -31,115 +36,204 @@ export default function PoliciesPage() {
     }
   }, []);
 
-  const handleCompile = async () => {
-    setIsCompiling(true);
-    setIsConfirmed(false);
-    try {
-      const res = await fetch("/api/compile", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: ruleText }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && data.policy) {
-          setCompiledPolicy(data.policy);
-        } else {
-          setCompiledPolicy(initialPolicy);
-        }
-      } else {
-        setCompiledPolicy(initialPolicy);
-      }
-    } catch (err) {
-      console.error("Compilation error:", err);
-      setCompiledPolicy(initialPolicy);
-    } finally {
-      setIsCompiling(false);
-    }
+  // Build the active mandate object dynamically from form inputs
+  const activeMandate = {
+    policy_id: "pol_001",
+    agent_id: "agent_shopper",
+    currency: "USD",
+    per_transaction_max: Number(perTransactionMax),
+    daily_budget: Number(dailyBudget),
+    monthly_budget: Number(monthlyBudget),
+    approval_required_above: Number(approvalThreshold),
+    allowed_merchants: allowedMerchants.split(",").map(s => s.trim()),
+    blocked_categories: blockedCategories.split(",").map(s => s.toLowerCase().replace(/\s+/g, '_')),
+    allowed_hours: { start: startTime, end: endTime, tz: "Asia/Kolkata" },
+    expires_at: "2026-11-30T00:00:00Z"
   };
 
   const handleActivate = async () => {
-    if (!compiledPolicy) return;
     setIsSaving(true);
     try {
-      let mandateObj = compiledPolicy;
-      if ((compiledPolicy as any).choices && (compiledPolicy as any).choices[0]) {
-        mandateObj = JSON.parse((compiledPolicy as any).choices[0].message.content);
-      }
       const res = await fetch("/api/policies", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          policyId: mandateObj.policy_id || "pol_001",
-          agentId: mandateObj.agent_id || "agent_shopper",
-          rawPrompt: ruleText,
-          mandateJson: mandateObj,
-          expiresAt: mandateObj.expires_at || "2026-11-30T00:00:00Z",
+          policyId: activeMandate.policy_id,
+          agentId: activeMandate.agent_id,
+          rawPrompt: `Configured via interactive controls: Max $${perTransactionMax}, Approval above $${approvalThreshold}`,
+          mandateJson: activeMandate,
+          expiresAt: activeMandate.expires_at,
         }),
       });
+
       const data = await res.json();
       if (res.ok && data.success) {
         setIsConfirmed(true);
-        localStorage.setItem("activePolicy", JSON.stringify(mandateObj));
-        localStorage.setItem("ruleText", ruleText);
+        // Save to localStorage so Live Feed & Approvals instantly sync
+        localStorage.setItem("activePolicy", JSON.stringify(activeMandate));
       } else {
-        alert("Failed to save policy: " + (data.error || "Unknown error"));
+        alert("Failed to save policy");
       }
     } catch (err) {
       console.error("Error saving policy:", err);
-      alert("Network or parsing error while saving policy.");
     } finally {
       setIsSaving(false);
     }
   };
 
   return (
-    <div className="space-y-6 p-6 max-w-5xl mx-auto">
-      <PageHeader
-        title="Spending Policies"
-        description="Write rules in plain language. Purchase Pal compiles them into deterministic JSON mandates."
-      />
+    <div className="space-y-6 p-8 max-w-7xl mx-auto text-zinc-100">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-white">Spending Policies</h1>
+        <p className="text-sm text-zinc-400 mt-1">
+          Configure guardrails instantly using interactive controls. Purchase Pal generates deterministic JSON mandates in real time.
+        </p>
+      </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="flex flex-col rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <label htmlFor="rules-input" className="text-sm font-semibold text-zinc-800">
-            1. Plain-Language Spending Rules
-          </label>
-          <textarea
-            id="rules-input"
-            rows={8}
-            value={ruleText}
-            onChange={(e) => {
-              const val = e.target.value;
-              setRuleText(val);
-              localStorage.setItem("ruleText", val);
-              setIsConfirmed(false);
-            }}
-            className="mt-3 w-full rounded-lg border border-zinc-300 bg-transparent p-3 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-black"
-          />
-          <button
-            onClick={handleCompile}
-            disabled={isCompiling || !ruleText.trim()}
-            className="mt-4 inline-flex items-center justify-center rounded-lg bg-black px-4 py-2 text-white font-medium disabled:opacity-50"
-          >
-            {isCompiling ? "Compiling Mandate..." : "Compile to JSON Mandate"}
-          </button>
+        {/* Left Column: Interactive Form Controls */}
+        <div className="flex flex-col rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6 shadow-xl backdrop-blur space-y-4">
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-sm font-semibold text-zinc-200">
+              1. Policy Configuration Controls
+            </label>
+            <span className="text-xs text-emerald-400 font-mono bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-800/50">
+              Instant Sync Active
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs text-zinc-400 font-medium">Max Spend / Tx ($)</label>
+              <input
+                type="number"
+                value={perTransactionMax}
+                onChange={(e) => { setPerTransactionMax(Number(e.target.value)); setIsConfirmed(false); }}
+                className="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-950/80 p-3 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-zinc-400 font-medium">Manual Approval Above ($)</label>
+              <input
+                type="number"
+                value={approvalThreshold}
+                onChange={(e) => { setApprovalThreshold(Number(e.target.value)); setIsConfirmed(false); }}
+                className="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-950/80 p-3 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs text-zinc-400 font-medium">Daily Budget ($)</label>
+              <input
+                type="number"
+                value={dailyBudget}
+                onChange={(e) => { setDailyBudget(Number(e.target.value)); setIsConfirmed(false); }}
+                className="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-950/80 p-3 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-zinc-400 font-medium">Monthly Budget ($)</label>
+              <input
+                type="number"
+                value={monthlyBudget}
+                onChange={(e) => { setMonthlyBudget(Number(e.target.value)); setIsConfirmed(false); }}
+                className="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-950/80 p-3 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs text-zinc-400 font-medium">Allowed Merchants (comma-separated)</label>
+            <input
+              type="text"
+              value={allowedMerchants}
+              onChange={(e) => { setAllowedMerchants(e.target.value); setIsConfirmed(false); }}
+              className="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-950/80 p-3 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs text-zinc-400 font-medium">Blocked Categories (comma-separated)</label>
+            <input
+              type="text"
+              value={blockedCategories}
+              onChange={(e) => { setBlockedCategories(e.target.value); setIsConfirmed(false); }}
+              className="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-950/80 p-3 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs text-zinc-400 font-medium">Allowed Start Time</label>
+              <input
+                type="text"
+                value={startTime}
+                onChange={(e) => { setStartTime(e.target.value); setIsConfirmed(false); }}
+                className="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-950/80 p-3 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-zinc-400 font-medium">Allowed End Time</label>
+              <input
+                type="text"
+                value={endTime}
+                onChange={(e) => { setEndTime(e.target.value); setIsConfirmed(false); }}
+                className="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-950/80 p-3 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+              />
+            </div>
+          </div>
         </div>
 
-        <div className="flex flex-col rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-zinc-800">2. Structured Mandate Preview</span>
-            <span className="rounded bg-zinc-100 px-2 py-0.5 font-mono text-[11px] text-zinc-600">zod validated</span>
+        {/* Right Column: Structured Mandate Summary Preview */}
+        <div className="flex flex-col justify-between rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6 shadow-xl backdrop-blur">
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-sm font-semibold text-zinc-200">2. Structured Mandate Summary</span>
+              <span className="rounded-full bg-emerald-950/80 border border-emerald-800/50 px-2.5 py-0.5 font-mono text-[11px] text-emerald-400 font-medium">
+                zod validated
+              </span>
+            </div>
+
+            <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/80 p-5 space-y-3.5 text-sm text-zinc-300">
+              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Summary of active rules:</p>
+              
+              <ul className="space-y-2.5 text-xs sm:text-sm">
+                <li className="flex items-start gap-2">
+                  <span className="text-emerald-400 font-bold">•</span>
+                  <span><strong className="text-white">Max Spend:</strong> ${perTransactionMax}.00 per transaction</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-emerald-400 font-bold">•</span>
+                  <span><strong className="text-white">Budgets:</strong> ${dailyBudget}.00 daily / ${monthlyBudget}.00 monthly</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-emerald-400 font-bold">•</span>
+                  <span><strong className="text-white">Manual Approvals:</strong> Required for amounts over ${approvalThreshold}.00</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-emerald-400 font-bold">•</span>
+                  <span><strong className="text-white">Allowed Places:</strong> {allowedMerchants}</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-emerald-400 font-bold">•</span>
+                  <span><strong className="text-white">Blocked Categories:</strong> {blockedCategories}</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-emerald-400 font-bold">•</span>
+                  <span><strong className="text-white">Time Window:</strong> {startTime} to {endTime} IST</span>
+                </li>
+              </ul>
+            </div>
           </div>
-          <pre className="mt-3 flex-1 overflow-x-auto rounded-lg bg-zinc-950 p-4 font-mono text-xs text-zinc-200">
-            {compiledPolicy ? JSON.stringify(compiledPolicy, null, 2) : "// Click Compile to preview mandate"}
-          </pre>
+
           <button
             onClick={handleActivate}
-            disabled={!compiledPolicy || isSaving}
-            className="mt-4 inline-flex items-center justify-center rounded-lg bg-black px-4 py-2 text-white font-medium disabled:opacity-50"
+            disabled={isSaving}
+            className="mt-6 w-full inline-flex items-center justify-center rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 px-4 py-3 text-white font-semibold text-sm shadow-lg shadow-emerald-950/50 transition-all disabled:opacity-50"
           >
-            {isSaving ? "Saving..." : isConfirmed ? "✓ Policy Confirmed & Active" : "Confirm & Activate Policy"}
+            {isSaving ? "Activating..." : isConfirmed ? "✓ Policy Confirmed & Active" : "Confirm & Activate Policy"}
           </button>
         </div>
       </div>
