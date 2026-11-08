@@ -1,71 +1,126 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ReactNode, useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
+import { TelegramStatusBadge } from "@/components/TelegramStatusBadge";
 
-export default function DashboardLayout({ children }: { children: ReactNode }) {
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const [isDark, setIsDark] = useState(true);
+  const pathname = usePathname();
 
   useEffect(() => {
     const checkTheme = () => {
       const saved = localStorage.getItem("theme");
-      setIsDark(saved ? saved === "dark" : true);
+      const darkState = saved ? saved === "dark" : true;
+      setIsDark(darkState);
+      if (darkState) {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
     };
     checkTheme();
 
     window.addEventListener("storage", checkTheme);
-    const interval = setInterval(checkTheme, 200);
+    window.addEventListener("themeChange", checkTheme);
 
     return () => {
       window.removeEventListener("storage", checkTheme);
-      clearInterval(interval);
+      window.removeEventListener("themeChange", checkTheme);
     };
   }, []);
 
   const toggleTheme = () => {
-    const next = !isDark;
-    setIsDark(next);
-    localStorage.setItem("theme", next ? "dark" : "light");
-    window.dispatchEvent(new Event("storage"));
+    const newDark = !isDark;
+    setIsDark(newDark);
+    localStorage.setItem("theme", newDark ? "dark" : "light");
+    if (newDark) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+    window.dispatchEvent(new Event("themeChange"));
   };
 
-  return (
-    <div className={`min-h-screen transition-colors ${isDark ? "bg-zinc-950 text-zinc-100" : "bg-white text-zinc-900"}`}>
-      <header className={`border-b px-6 py-4 flex items-center justify-between backdrop-blur transition-colors ${
-        isDark ? "border-zinc-800 bg-zinc-900/50" : "border-zinc-200 bg-white/80"
-      }`}>
-        <div className="flex items-center gap-6">
-          <Link href="/policies" className="flex items-center gap-2 font-bold tracking-tight">
-            <span className="inline-block h-3 w-3 rounded-full bg-emerald-500" />
-            Purchase Pal
-          </Link>
-          <nav className={`flex items-center gap-4 text-sm font-medium ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>
-            <Link href="/policies" className={isDark ? "hover:text-zinc-100" : "hover:text-zinc-900"}>Policies</Link>
-            <Link href="/feed" className={isDark ? "hover:text-zinc-100" : "hover:text-zinc-900"}>Live Feed</Link>
-            <Link href="/approvals" className={isDark ? "hover:text-zinc-100" : "hover:text-zinc-900"}>Approvals</Link>
-          </nav>
-        </div>
+  const navItems = [
+    { name: "Policies", href: "/policies" },
+    { name: "Live Feed", href: "/live-feed" },
+    { name: "Approvals", href: "/approvals" },
+  ];
 
-        <div className="flex items-center gap-4">
-          <button
-            onClick={toggleTheme}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all shadow-sm ${
-              isDark 
-                ? "border-zinc-700 bg-zinc-900 text-zinc-200 hover:bg-zinc-800" 
-                : "border-zinc-300 bg-zinc-100 text-zinc-800 hover:bg-zinc-200"
-            }`}
-          >
-            {isDark ? "🌙 Dark" : "☀️ Light"}
-          </button>
+  return (
+    <div className={`min-h-screen transition-colors duration-300 ${isDark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"}`}>
+      {/* Top Navigation Header */}
+      <header className={`sticky top-0 z-50 border-b backdrop-blur-md transition-colors ${
+        isDark ? "border-zinc-800 bg-zinc-950/80" : "border-zinc-200 bg-white/80"
+      }`}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           
-          <span className={`rounded-full px-3 py-1 font-mono text-xs border ${
-            isDark ? "bg-zinc-800 text-zinc-300 border-zinc-700" : "bg-zinc-100 text-zinc-700 border-zinc-300"
-          }`}>
-            PayPal Sandbox
-          </span>
+          {/* Logo & Nav Links */}
+          <div className="flex items-center gap-8">
+            <div className="flex items-center gap-2 font-bold tracking-tight">
+              <span className="h-3 w-3 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span className="text-lg">Purchase Pal</span>
+            </div>
+
+            <nav className="hidden md:flex items-center gap-1">
+              {navItems.map((item) => {
+                const isActive = pathname === item.href;
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className={`px-3.5 py-1.5 rounded-xl text-sm font-medium transition-all ${
+                      isActive
+                        ? isDark
+                          ? "bg-zinc-800 text-white"
+                          : "bg-zinc-100 text-zinc-900"
+                        : isDark
+                          ? "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
+                          : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"
+                    }`}
+                  >
+                    {item.name}
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
+
+          {/* Right Action Bar: Telegram Badge, Theme Toggle & Sandbox Badge */}
+          <div className="flex items-center gap-3">
+            <TelegramStatusBadge />
+
+            <button
+              onClick={toggleTheme}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors ${
+                isDark 
+                  ? "border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800" 
+                  : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-100"
+              }`}
+            >
+              <span>{isDark ? "🌙 Dark" : "☀️ Light"}</span>
+            </button>
+
+            <span className={`hidden sm:inline-flex px-3 py-1.5 rounded-xl text-xs font-mono font-semibold border ${
+              isDark 
+                ? "border-zinc-800 bg-zinc-900/50 text-zinc-300" 
+                : "border-zinc-200 bg-zinc-100 text-zinc-700"
+            }`}>
+              PayPal Sandbox
+            </span>
+          </div>
+
         </div>
       </header>
-      <main className="max-w-7xl mx-auto px-4 py-8">
+
+      {/* Main Page Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {children}
       </main>
     </div>
