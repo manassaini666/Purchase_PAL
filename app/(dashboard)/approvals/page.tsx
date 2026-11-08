@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 
 export default function ApprovalsPage() {
   const [isDark, setIsDark] = useState(true);
-  const [threshold, setThreshold] = useState(10);
+  const [threshold, setThreshold] = useState(68);
   
   // Mock test purchase amount
   const purchaseAmount = 28.50;
