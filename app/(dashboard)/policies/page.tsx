@@ -3,10 +3,11 @@
 import { useState, useEffect } from "react";
 
 export default function PoliciesPage() {
-  const [perTransactionMax, setPerTransactionMax] = useState<number>(50);
-  const [dailyBudget, setDailyBudget] = useState<number>(100);
+  const [isDark, setIsDark] = useState(true);
+  const [perTransactionMax, setPerTransactionMax] = useState<number>(63);
+  const [dailyBudget, setDailyBudget] = useState<number>(150);
   const [monthlyBudget, setMonthlyBudget] = useState<number>(300);
-  const [approvalThreshold, setApprovalThreshold] = useState<number>(25);
+  const [approvalThreshold, setApprovalThreshold] = useState<number>(30);
   const [allowedMerchants, setAllowedMerchants] = useState<string>("Merchant A, Merchant B");
   const [blockedCategories, setBlockedCategories] = useState<string>("Gift Cards, Crypto");
   const [startTime, setStartTime] = useState<string>("08:00");
@@ -14,9 +15,14 @@ export default function PoliciesPage() {
 
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isDark, setIsDark] = useState(true);
 
-  // Sync theme with localStorage and listen for changes
+  // Live budget utilization stats
+  const dailySpent = 63.50;
+  const monthlySpent = 185.00;
+
+  const dailyPercentage = Math.min(Math.round((dailySpent / dailyBudget) * 100), 100);
+  const monthlyPercentage = Math.min(Math.round((monthlySpent / monthlyBudget) * 100), 100);
+
   useEffect(() => {
     const checkTheme = () => {
       const saved = localStorage.getItem("theme");
@@ -24,9 +30,8 @@ export default function PoliciesPage() {
     };
     checkTheme();
 
-    // Listen for storage changes when toggle is clicked
     window.addEventListener("storage", checkTheme);
-    const interval = setInterval(checkTheme, 200); // Polling for instant UI sync
+    window.addEventListener("themeChange", checkTheme);
 
     const savedPolicy = localStorage.getItem("activePolicy");
     if (savedPolicy) {
@@ -46,7 +51,7 @@ export default function PoliciesPage() {
 
     return () => {
       window.removeEventListener("storage", checkTheme);
-      clearInterval(interval);
+      window.removeEventListener("themeChange", checkTheme);
     };
   }, []);
 
@@ -96,27 +101,83 @@ export default function PoliciesPage() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       <div>
-        <h1 className={`text-2xl font-bold tracking-tight ${isDark ? "text-white" : "text-zinc-900"}`}>Spending Policies</h1>
+        <h1 className={`text-2xl font-bold tracking-tight ${isDark ? "text-white" : "text-zinc-900"}`}>
+          Spending Policies & Analytics
+        </h1>
         <p className={`text-sm mt-1 ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>
-          Configure guardrails instantly using interactive controls. Purchase Pal generates deterministic JSON mandates in real time.
+          Configure guardrails instantly and track real-time agent budget consumption.
         </p>
+      </div>
+
+      {/* LIVE BUDGET UTILIZATION ANALYTICS BAR */}
+      <div className={`rounded-2xl border p-6 shadow-xl backdrop-blur space-y-5 transition-colors ${
+        isDark ? "border-zinc-800 bg-zinc-900/60 text-zinc-100" : "border-zinc-200 bg-white text-zinc-900"
+      }`}>
+        <div className="flex items-center justify-between">
+          <span className={`text-sm font-semibold ${isDark ? "text-zinc-200" : "text-zinc-900"}`}>
+            📊 Live Budget Utilization
+          </span>
+          <span className={`text-xs font-mono px-2.5 py-0.5 rounded border ${
+            isDark ? "bg-emerald-950/80 text-emerald-400 border-emerald-800/50" : "bg-emerald-50 text-emerald-600 border-emerald-200"
+          }`}>
+            Firewall Active
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Daily Budget Progress */}
+          <div className="space-y-2">
+            <div className="flex justify-between text-xs font-medium">
+              <span className={isDark ? "text-zinc-400" : "text-zinc-600"}>Daily Spent</span>
+              <span className={`font-mono ${isDark ? "text-zinc-200" : "text-zinc-900"}`}>
+                ${dailySpent.toFixed(2)} / ${dailyBudget}.00 ({dailyPercentage}%)
+              </span>
+            </div>
+            <div className={`h-3 w-full rounded-full overflow-hidden border ${
+              isDark ? "bg-zinc-800 border-zinc-700" : "bg-zinc-100 border-zinc-200"
+            }`}>
+              <div
+                className={`h-full transition-all duration-500 rounded-full ${
+                  dailyPercentage > 85 ? "bg-rose-500" : "bg-emerald-500"
+                }`}
+                style={{ width: `${dailyPercentage}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Monthly Budget Progress */}
+          <div className="space-y-2">
+            <div className="flex justify-between text-xs font-medium">
+              <span className={isDark ? "text-zinc-400" : "text-zinc-600"}>Monthly Spent</span>
+              <span className={`font-mono ${isDark ? "text-zinc-200" : "text-zinc-900"}`}>
+                ${monthlySpent.toFixed(2)} / ${monthlyBudget}.00 ({monthlyPercentage}%)
+              </span>
+            </div>
+            <div className={`h-3 w-full rounded-full overflow-hidden border ${
+              isDark ? "bg-zinc-800 border-zinc-700" : "bg-zinc-100 border-zinc-200"
+            }`}>
+              <div
+                className={`h-full transition-all duration-500 rounded-full ${
+                  monthlyPercentage > 85 ? "bg-rose-500" : "bg-emerald-500"
+                }`}
+                style={{ width: `${monthlyPercentage}%` }}
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Left Column: Interactive Form Controls */}
         <div className={`flex flex-col rounded-2xl border p-6 shadow-xl backdrop-blur space-y-4 transition-colors ${
-          isDark 
-            ? "border-zinc-800 bg-zinc-900/60 text-zinc-100" 
-            : "border-zinc-200 bg-white text-zinc-900"
+          isDark ? "border-zinc-800 bg-zinc-900/60 text-zinc-100" : "border-zinc-200 bg-white text-zinc-900"
         }`}>
           <div className="flex items-center justify-between mb-1">
             <label className={`text-sm font-semibold ${isDark ? "text-zinc-200" : "text-zinc-900"}`}>
               1. Policy Configuration Controls
             </label>
             <span className={`text-xs font-mono px-2 py-0.5 rounded border ${
-              isDark 
-                ? "text-emerald-400 bg-emerald-950/80 border-emerald-800/50" 
-                : "text-emerald-700 bg-emerald-50 border-emerald-200"
+              isDark ? "bg-emerald-950/80 text-emerald-400 border-emerald-800/50" : "bg-emerald-50 text-emerald-600 border-emerald-200"
             }`}>
               Instant Sync Active
             </span>
@@ -128,11 +189,10 @@ export default function PoliciesPage() {
               <input
                 type="number"
                 value={perTransactionMax}
+                style={{ colorScheme: isDark ? "dark" : "light" }}
                 onChange={(e) => { setPerTransactionMax(Number(e.target.value)); setIsConfirmed(false); }}
                 className={`mt-1 w-full rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono transition-colors ${
-                  isDark 
-                    ? "border-zinc-800 bg-zinc-950/80 text-zinc-200" 
-                    : "border-zinc-300 bg-zinc-50 text-zinc-900"
+                  isDark ? "border-zinc-800 bg-zinc-900 text-zinc-100" : "border-zinc-300 bg-white text-zinc-900"
                 }`}
               />
             </div>
@@ -141,11 +201,10 @@ export default function PoliciesPage() {
               <input
                 type="number"
                 value={approvalThreshold}
+                style={{ colorScheme: isDark ? "dark" : "light" }}
                 onChange={(e) => { setApprovalThreshold(Number(e.target.value)); setIsConfirmed(false); }}
                 className={`mt-1 w-full rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono transition-colors ${
-                  isDark 
-                    ? "border-zinc-800 bg-zinc-950/80 text-zinc-200" 
-                    : "border-zinc-300 bg-zinc-50 text-zinc-900"
+                  isDark ? "border-zinc-800 bg-zinc-900 text-zinc-100" : "border-zinc-300 bg-white text-zinc-900"
                 }`}
               />
             </div>
@@ -157,11 +216,10 @@ export default function PoliciesPage() {
               <input
                 type="number"
                 value={dailyBudget}
+                style={{ colorScheme: isDark ? "dark" : "light" }}
                 onChange={(e) => { setDailyBudget(Number(e.target.value)); setIsConfirmed(false); }}
                 className={`mt-1 w-full rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono transition-colors ${
-                  isDark 
-                    ? "border-zinc-800 bg-zinc-950/80 text-zinc-200" 
-                    : "border-zinc-300 bg-zinc-50 text-zinc-900"
+                  isDark ? "border-zinc-800 bg-zinc-900 text-zinc-100" : "border-zinc-300 bg-white text-zinc-900"
                 }`}
               />
             </div>
@@ -170,11 +228,10 @@ export default function PoliciesPage() {
               <input
                 type="number"
                 value={monthlyBudget}
+                style={{ colorScheme: isDark ? "dark" : "light" }}
                 onChange={(e) => { setMonthlyBudget(Number(e.target.value)); setIsConfirmed(false); }}
                 className={`mt-1 w-full rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono transition-colors ${
-                  isDark 
-                    ? "border-zinc-800 bg-zinc-950/80 text-zinc-200" 
-                    : "border-zinc-300 bg-zinc-50 text-zinc-900"
+                  isDark ? "border-zinc-800 bg-zinc-900 text-zinc-100" : "border-zinc-300 bg-white text-zinc-900"
                 }`}
               />
             </div>
@@ -185,11 +242,10 @@ export default function PoliciesPage() {
             <input
               type="text"
               value={allowedMerchants}
+              style={{ colorScheme: isDark ? "dark" : "light" }}
               onChange={(e) => { setAllowedMerchants(e.target.value); setIsConfirmed(false); }}
               className={`mt-1 w-full rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono transition-colors ${
-                isDark 
-                  ? "border-zinc-800 bg-zinc-950/80 text-zinc-200" 
-                  : "border-zinc-300 bg-zinc-50 text-zinc-900"
+                isDark ? "border-zinc-800 bg-zinc-900 text-zinc-100" : "border-zinc-300 bg-white text-zinc-900"
               }`}
             />
           </div>
@@ -199,11 +255,10 @@ export default function PoliciesPage() {
             <input
               type="text"
               value={blockedCategories}
+              style={{ colorScheme: isDark ? "dark" : "light" }}
               onChange={(e) => { setBlockedCategories(e.target.value); setIsConfirmed(false); }}
               className={`mt-1 w-full rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono transition-colors ${
-                isDark 
-                  ? "border-zinc-800 bg-zinc-950/80 text-zinc-200" 
-                  : "border-zinc-300 bg-zinc-50 text-zinc-900"
+                isDark ? "border-zinc-800 bg-zinc-900 text-zinc-100" : "border-zinc-300 bg-white text-zinc-900"
               }`}
             />
           </div>
@@ -214,11 +269,10 @@ export default function PoliciesPage() {
               <input
                 type="text"
                 value={startTime}
+                style={{ colorScheme: isDark ? "dark" : "light" }}
                 onChange={(e) => { setStartTime(e.target.value); setIsConfirmed(false); }}
                 className={`mt-1 w-full rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono transition-colors ${
-                  isDark 
-                    ? "border-zinc-800 bg-zinc-950/80 text-zinc-200" 
-                    : "border-zinc-300 bg-zinc-50 text-zinc-900"
+                  isDark ? "border-zinc-800 bg-zinc-900 text-zinc-100" : "border-zinc-300 bg-white text-zinc-900"
                 }`}
               />
             </div>
@@ -227,11 +281,10 @@ export default function PoliciesPage() {
               <input
                 type="text"
                 value={endTime}
+                style={{ colorScheme: isDark ? "dark" : "light" }}
                 onChange={(e) => { setEndTime(e.target.value); setIsConfirmed(false); }}
                 className={`mt-1 w-full rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono transition-colors ${
-                  isDark 
-                    ? "border-zinc-800 bg-zinc-950/80 text-zinc-200" 
-                    : "border-zinc-300 bg-zinc-50 text-zinc-900"
+                  isDark ? "border-zinc-800 bg-zinc-900 text-zinc-100" : "border-zinc-300 bg-white text-zinc-900"
                 }`}
               />
             </div>
@@ -240,52 +293,46 @@ export default function PoliciesPage() {
 
         {/* Right Column: Structured Mandate Summary Preview */}
         <div className={`flex flex-col justify-between rounded-2xl border p-6 shadow-xl backdrop-blur transition-colors ${
-          isDark 
-            ? "border-zinc-800 bg-zinc-900/60 text-zinc-100" 
-            : "border-zinc-200 bg-white text-zinc-900"
+          isDark ? "border-zinc-800 bg-zinc-900/60 text-zinc-100" : "border-zinc-200 bg-white text-zinc-900"
         }`}>
           <div>
             <div className="flex items-center justify-between mb-4">
               <span className={`text-sm font-semibold ${isDark ? "text-zinc-200" : "text-zinc-900"}`}>2. Structured Mandate Summary</span>
               <span className={`rounded-full px-2.5 py-0.5 font-mono text-[11px] font-medium border ${
-                isDark 
-                  ? "bg-emerald-950/80 border-emerald-800/50 text-emerald-400" 
-                  : "bg-emerald-50 border-emerald-200 text-emerald-700"
+                isDark ? "bg-emerald-950/80 text-emerald-400 border-emerald-800/50" : "bg-emerald-50 text-emerald-600 border-emerald-200"
               }`}>
                 zod validated
               </span>
             </div>
 
             <div className={`rounded-xl border p-5 space-y-3.5 text-sm transition-colors ${
-              isDark 
-                ? "border-zinc-800/80 bg-zinc-950/80 text-zinc-300" 
-                : "border-zinc-200 bg-zinc-50 text-zinc-700"
+              isDark ? "border-zinc-800 bg-zinc-950/80 text-zinc-300" : "border-zinc-200 bg-zinc-50 text-zinc-700"
             }`}>
-              <p className={`text-xs font-semibold uppercase tracking-wider ${isDark ? "text-zinc-500" : "text-zinc-400"}`}>Summary of active rules:</p>
+              <p className={`text-xs font-semibold uppercase tracking-wider ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>Summary of active rules:</p>
               
               <ul className="space-y-2.5 text-xs sm:text-sm">
                 <li className="flex items-start gap-2">
-                  <span className={`font-bold ${isDark ? "text-emerald-400" : "text-emerald-600"}`}>•</span>
+                  <span className="text-emerald-500 font-bold">•</span>
                   <span><strong className={isDark ? "text-white" : "text-zinc-900"}>Max Spend:</strong> ${perTransactionMax}.00 per transaction</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className={`font-bold ${isDark ? "text-emerald-400" : "text-emerald-600"}`}>•</span>
+                  <span className="text-emerald-500 font-bold">•</span>
                   <span><strong className={isDark ? "text-white" : "text-zinc-900"}>Budgets:</strong> ${dailyBudget}.00 daily / ${monthlyBudget}.00 monthly</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className={`font-bold ${isDark ? "text-emerald-400" : "text-emerald-600"}`}>•</span>
+                  <span className="text-emerald-500 font-bold">•</span>
                   <span><strong className={isDark ? "text-white" : "text-zinc-900"}>Manual Approvals:</strong> Required for amounts over ${approvalThreshold}.00</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className={`font-bold ${isDark ? "text-emerald-400" : "text-emerald-600"}`}>•</span>
+                  <span className="text-emerald-500 font-bold">•</span>
                   <span><strong className={isDark ? "text-white" : "text-zinc-900"}>Allowed Places:</strong> {allowedMerchants}</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className={`font-bold ${isDark ? "text-emerald-400" : "text-emerald-600"}`}>•</span>
+                  <span className="text-emerald-500 font-bold">•</span>
                   <span><strong className={isDark ? "text-white" : "text-zinc-900"}>Blocked Categories:</strong> {blockedCategories}</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className={`font-bold ${isDark ? "text-emerald-400" : "text-emerald-600"}`}>•</span>
+                  <span className="text-emerald-500 font-bold">•</span>
                   <span><strong className={isDark ? "text-white" : "text-zinc-900"}>Time Window:</strong> {startTime} to {endTime} IST</span>
                 </li>
               </ul>
