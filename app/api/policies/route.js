@@ -7,7 +7,8 @@ function getDb() {
   const dbPath = path.join(process.cwd(), "dev.db");
   const db = new Database(dbPath);
   
-  // Ensure Policy table uses userId as primary/unique key
+  // Drop old table if it lacks userId (safe for hackathon reset)
+  // Or ensure table is created with userId primary key
   db.exec(`
     CREATE TABLE IF NOT EXISTS PolicyConfig (
       userId TEXT PRIMARY KEY,
@@ -32,7 +33,29 @@ export async function GET(request) {
     const userId = url.searchParams.get("userId") || "default-user";
 
     const db = getDb();
-    let policy = db.prepare("SELECT * FROM PolicyConfig WHERE userId = ?").get(userId);
+    let policy;
+    
+    try {
+      policy = db.prepare("SELECT * FROM PolicyConfig WHERE userId = ?").get(userId);
+    } catch (e) {
+      // If table schema mismatch occurred, recreate table cleanly
+      db.exec("DROP TABLE IF EXISTS PolicyConfig");
+      db.exec(`
+        CREATE TABLE PolicyConfig (
+          userId TEXT PRIMARY KEY,
+          maxSpendPerTx REAL,
+          manualApprovalAbove REAL,
+          dailyBudget REAL,
+          monthlyBudget REAL,
+          allowedMerchants TEXT,
+          blockedCategories TEXT,
+          allowedStartTime TEXT,
+          allowedEndTime TEXT,
+          updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      policy = null;
+    }
 
     // Agar is user ke liye pehle se policy nahi hai, toh default values insert kar do
     if (!policy) {
@@ -62,11 +85,29 @@ export async function POST(request) {
 
     const db = getDb();
 
-    // Get current policy for this specific user
-    let current = db.prepare("SELECT * FROM PolicyConfig WHERE userId = ?").get(userId);
+    let current;
+    try {
+      current = db.prepare("SELECT * FROM PolicyConfig WHERE userId = ?").get(userId);
+    } catch (e) {
+      db.exec("DROP TABLE IF EXISTS PolicyConfig");
+      db.exec(`
+        CREATE TABLE PolicyConfig (
+          userId TEXT PRIMARY KEY,
+          maxSpendPerTx REAL,
+          manualApprovalAbove REAL,
+          dailyBudget REAL,
+          monthlyBudget REAL,
+          allowedMerchants TEXT,
+          blockedCategories TEXT,
+          allowedStartTime TEXT,
+          allowedEndTime TEXT,
+          updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      current = null;
+    }
 
     if (!current) {
-      // Insert if not exists
       db.prepare(`
         INSERT INTO PolicyConfig (userId, maxSpendPerTx, manualApprovalAbove, dailyBudget, monthlyBudget, allowedMerchants, blockedCategories, allowedStartTime, allowedEndTime)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -82,7 +123,6 @@ export async function POST(request) {
         fields.allowedEndTime ?? "22:00"
       );
     } else {
-      // Update specific fields for this user
       const maxSpendPerTx = fields.maxSpendPerTx !== undefined ? fields.maxSpendPerTx : current.maxSpendPerTx;
       const manualApprovalAbove = fields.manualApprovalAbove !== undefined ? fields.manualApprovalAbove : current.manualApprovalAbove;
       const dailyBudget = fields.dailyBudget !== undefined ? fields.dailyBudget : current.dailyBudget;
