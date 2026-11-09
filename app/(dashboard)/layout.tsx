@@ -51,6 +51,7 @@ export default function DashboardLayout({
     { name: "Policies", href: "/policies" },
     { name: "Live Feed", href: "/live-feed" },
     { name: "Approvals", href: "/approvals" },
+    { name: "Disputes", href: "/disputes" },
   ];
 
   return (
