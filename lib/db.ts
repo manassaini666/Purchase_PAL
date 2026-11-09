@@ -1,7 +1,6 @@
-import { contractFromJson } from "@prisma/orm-sqlite/static";
-import contractJson from "../prisma/schema.json";
+import Database from "better-sqlite3";
+import path from "path";
 
-// Helper to interact with your SQLite contract database
-export const getDbConfig = () => {
-  return contractFromJson(contractJson);
-};
+// Shared SQLite database instance for all API routes
+const dbPath = path.join(process.cwd(), "dev.db");
+export const db = new Database(dbPath);
