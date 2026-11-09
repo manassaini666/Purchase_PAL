@@ -28,3 +28,14 @@ model Transaction {
   status    String   @default("APPROVED") // APPROVED, PENDING, BLOCKED
   createdAt DateTime @default(now())
 }
+model Dispute {
+  id             String   @id @default(cuid())
+  transactionId  String
+  merchantName   String
+  freelancerName String
+  amount         Float
+  disputeReason  String
+  status         String   @default("PENDING_ARBITRATION")
+  aiVerdict      String?
+  createdAt      DateTime @default(now())
+}
