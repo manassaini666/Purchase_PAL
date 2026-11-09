@@ -6,6 +6,7 @@ export default function PoliciesPage() {
   const [isDark, setIsDark] = useState(false);
   const [loading, setLoading] = useState(true);
   const [syncStatus, setSyncStatus] = useState("Instant Sync Active");
+  const [userId, setUserId] = useState("");
 
   const [policy, setPolicy] = useState({
     maxSpendPerTx: 63,
@@ -30,20 +31,28 @@ export default function PoliciesPage() {
     return () => observer.disconnect();
   }, []);
 
-  // Fetch initial policies
+  // Get or create unique session user ID from localStorage
   useEffect(() => {
-    fetch("/api/policies")
+    let uid = localStorage.getItem("purchase_pal_user_id");
+    if (!uid) {
+      uid = "user_" + Math.random().toString(36).substring(2, 9);
+      localStorage.setItem("purchase_pal_user_id", uid);
+    }
+    setUserId(uid);
+
+    // Fetch policies specific to this user
+    fetch(`/api/policies?userId=${uid}`)
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.policy) {
           setPolicy(data.policy);
         }
       })
-      .catch((err) => console.error("Failed to load policies", err))
+      .catch((err) => console.error("Failed to load user policies", err))
       .finally(() => setLoading(false));
   }, []);
 
-  // Auto-save handler on every change (Instant Background Sync)
+  // Auto-save handler passing the unique userId
   const handleFieldChange = async (field: string, value: any) => {
     const updated = { ...policy, [field]: value };
     setPolicy(updated);
@@ -53,7 +62,7 @@ export default function PoliciesPage() {
       const res = await fetch("/api/policies", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ [field]: value }),
+        body: JSON.stringify({ userId, [field]: value }),
       });
       const data = await res.json();
       if (data.success) {
@@ -70,7 +79,7 @@ export default function PoliciesPage() {
   if (loading) {
     return (
       <div className={`p-12 text-center ${isDark ? "text-zinc-400 bg-zinc-950" : "text-zinc-600 bg-zinc-50"} min-h-screen`}>
-        Loading autonomous policy guardrails...
+        Loading user-specific autonomous guardrails...
       </div>
     );
   }
@@ -109,7 +118,7 @@ export default function PoliciesPage() {
             <div className="flex justify-between items-center pb-4 border-b border-zinc-700/20">
               <div>
                 <h2 className="text-lg font-bold">1. Policy Configuration Controls</h2>
-                <p className="text-xs opacity-60">Changes are automatically saved and synced with the AI agent in real-time.</p>
+                <p className="text-xs opacity-60">Isolated session ID: <span className="font-mono text-purple-400">{userId}</span></p>
               </div>
               <span className="px-3 py-1 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
