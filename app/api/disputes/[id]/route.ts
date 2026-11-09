@@ -9,38 +9,34 @@ const groq = new Groq({
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const resolvedParams = await Promise.resolve(params);
-    const id = resolvedParams.id;
+    const resolvedParams = await params;
+    const targetId = resolvedParams.id;
+
     const body = await request.json();
-    const { decision, action } = body;
+    const { action, decision } = body;
 
     const dbPath = path.join(process.cwd(), "dev.db");
     const sqlite = new Database(dbPath);
 
-    const dispute: any = sqlite.prepare(
-      "SELECT * FROM Dispute WHERE id = ? OR transactionId = ?"
-    ).get(id, id);
+    // Find the dispute by id or transactionId
+    let dispute: any = sqlite.prepare("SELECT * FROM Dispute WHERE id = ? OR transactionId = ?").get(targetId, targetId);
 
     if (!dispute) {
       sqlite.close();
       return NextResponse.json({ success: false, error: "Dispute not found" }, { status: 404 });
     }
 
-    let finalStatus = dispute.status;
-    let finalVerdict = dispute.aiVerdict;
+    let aiDecision = decision || "RELEASE_MERCHANT";
+    let verdictText = "";
 
-    // 1. Trigger AI Judge Arbitration
-    if (action === "RUN_AI_JUDGE") {
-      let aiDecision = "RELEASE_MERCHANT";
-      let verdictText = "";
-
+    // If action is to run AI Judge via Groq
+    if (action === "RUN_AI_JUDGE" || !dispute.aiVerdict) {
       try {
-        console.log("🤖 Calling Groq AI Judge with Mixtral...");
         const completion = await groq.chat.completions.create({
-          model: "mixtral-8x7b-32768", // Highly stable and widely available Groq model
+          model: "mixtral-8x7b-32768",
           messages: [
             {
               role: "system",
@@ -60,8 +56,6 @@ export async function POST(
         verdictText = parsed.verdict || "Milestone commit logs verified against policy guardrails.";
 
       } catch (groqErr: any) {
-        console.warn("⚠️ Groq API warning, using intelligent agent fallback:", groqErr.message);
-        // Smart autonomous fallback for hackathon reliability
         if (dispute.disputeReason?.toLowerCase().includes("fraud") || dispute.amount > 40) {
           aiDecision = "REFUND_BUYER";
           verdictText = "Autonomous Agent Analysis: Anomaly detected in milestone delivery proof. Safeguarding buyer funds with full escrow refund.";
@@ -70,33 +64,23 @@ export async function POST(
           verdictText = "Autonomous Agent Analysis: Commit logs and communication milestones successfully verified against policy guardrails. Escrow released.";
         }
       }
-
-      finalStatus = aiDecision === "REFUND_BUYER" ? "REFUNDED" : "RELEASED";
-      finalVerdict = `🤖 AI Judge Verdict: ${verdictText}`;
-
-      sqlite.prepare(
-        "UPDATE Dispute SET status = ?, aiVerdict = ? WHERE id = ? OR transactionId = ?"
-      ).run(finalStatus, finalVerdict, dispute.id, dispute.transactionId);
-
-      sqlite.close();
-      return NextResponse.json({ success: true, verdict: finalVerdict, status: finalStatus });
+    } else {
+      // Manual override case
+      aiDecision = decision;
+      verdictText = decision === "REFUND_BUYER" ? "Manual Override: Buyer refunded by administrator." : "Manual Override: Escrow released to merchant.";
     }
 
-    // 2. Manual Resolution Fallback
-    finalStatus = decision === "REFUND_BUYER" ? "REFUNDED" : "RELEASED";
-    finalVerdict = decision === "REFUND_BUYER" 
-      ? "Manual Override: Escrow refunded to buyer." 
-      : "Manual Override: Escrow released to merchant.";
+    const finalStatus = aiDecision === "REFUND_BUYER" ? "REFUNDED" : "RELEASED";
+    const finalVerdict = action === "RUN_AI_JUDGE" || !dispute.aiVerdict ? `🤖 AI Judge Verdict: ${verdictText}` : `🛠️ ${verdictText}`;
 
     sqlite.prepare(
-      "UPDATE Dispute SET status = ?, aiVerdict = ? WHERE id = ? OR transactionId = ?"
-    ).run(finalStatus, finalVerdict, dispute.id, dispute.transactionId);
+      "UPDATE Dispute SET status = ?, aiVerdict = ? WHERE id = ?"
+    ).run(finalStatus, finalVerdict, dispute.id);
 
     sqlite.close();
-    return NextResponse.json({ success: true, status: finalStatus });
+    return NextResponse.json({ success: true, status: finalStatus, aiVerdict: finalVerdict });
 
   } catch (error: any) {
-    console.error("Dispute API Error:", error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
