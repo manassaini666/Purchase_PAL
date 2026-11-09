@@ -3,23 +3,28 @@ import { supabase } from "@/lib/supabase";
 
 export async function POST(request) {
   try {
-    const body = await request.json();
-    const { action, email, password } = body;
-
-    if (!email || !password) {
-      return NextResponse.json({ success: false, error: "Email and password are required" }, { status: 400 });
-    }
+    const { action, email, password } = await request.json();
 
     if (action === "signup") {
-      const { data: existing } = await supabase.from("users").select("*").eq("email", email).maybeSingle();
-      if (existing) {
-        return NextResponse.json({ success: false, error: "User already exists! Please login." }, { status: 400 });
+      // Check karo ki user pehle se to nahi hai
+      const { data: existingUser } = await supabase
+        .from("users")
+        .select("*")
+        .eq("email", email)
+        .maybeSingle();
+
+      if (existingUser) {
+        return NextResponse.json({ success: false, error: "User already exists. Please sign in." }, { status: 400 });
       }
 
-      const { error: insertError } = await supabase.from("users").insert([{ email, password }]);
+      // New user insert karo
+      const { error: insertError } = await supabase
+        .from("users")
+        .insert([{ email, password }]);
+
       if (insertError) throw insertError;
 
-      // Insert default policy for new user
+      // Default policy config insert/upsert kar do
       await supabase.from("policy_config").upsert([{
         user_id: email,
         max_spend_per_tx: 63,
@@ -32,10 +37,11 @@ export async function POST(request) {
         allowed_end_time: "22:00"
       }]);
 
-      return NextResponse.json({ success: true, message: "Signup successful!", email });
+      return NextResponse.json({ success: true, message: "Signup successful!" });
     } 
     
     if (action === "login") {
+      // Database me email aur password match karo
       const { data: user, error } = await supabase
         .from("users")
         .select("*")
@@ -47,11 +53,11 @@ export async function POST(request) {
         return NextResponse.json({ success: false, error: "Invalid email or password" }, { status: 400 });
       }
 
-      return NextResponse.json({ success: true, message: "Login successful!", email });
+      return NextResponse.json({ success: true, message: "Login successful!" });
     }
 
     return NextResponse.json({ success: false, error: "Invalid action" }, { status: 400 });
-  } catch (error) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  } catch (err) {
+    return NextResponse.json({ success: false, error: err.message }, { status: 400 });
   }
 }

@@ -34,8 +34,8 @@ export default function LoginPage() {
       // Email ko localStorage me save kar lo taaki policies cloud se sync ho sakein
       localStorage.setItem("purchase_pal_user_id", email);
 
-      // Policies dashboard par redirect kar do
-      router.push("/");
+      // Seedha policies dashboard par redirect kar do
+      router.push("/policies");
     } catch (err) {
       setError(err.message);
     } finally {
