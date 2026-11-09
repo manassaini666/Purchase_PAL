@@ -1,74 +1,43 @@
 import { NextResponse } from "next/server";
-import Database from "better-sqlite3";
-import path from "path";
-
-// Helper to get DB connection
-function getDb() {
-  const dbPath = path.join(process.cwd(), "dev.db");
-  const db = new Database(dbPath);
-  
-  // Drop old table if it lacks userId (safe for hackathon reset)
-  // Or ensure table is created with userId primary key
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS PolicyConfig (
-      userId TEXT PRIMARY KEY,
-      maxSpendPerTx REAL,
-      manualApprovalAbove REAL,
-      dailyBudget REAL,
-      monthlyBudget REAL,
-      allowedMerchants TEXT,
-      blockedCategories TEXT,
-      allowedStartTime TEXT,
-      allowedEndTime TEXT,
-      updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  return db;
-}
+import { supabase } from "@/lib/supabase";
 
 export async function GET(request) {
   try {
     const url = new URL(request.url);
     const userId = url.searchParams.get("userId") || "default-user";
 
-    const db = getDb();
-    let policy;
-    
-    try {
-      policy = db.prepare("SELECT * FROM PolicyConfig WHERE userId = ?").get(userId);
-    } catch (e) {
-      // If table schema mismatch occurred, recreate table cleanly
-      db.exec("DROP TABLE IF EXISTS PolicyConfig");
-      db.exec(`
-        CREATE TABLE PolicyConfig (
-          userId TEXT PRIMARY KEY,
-          maxSpendPerTx REAL,
-          manualApprovalAbove REAL,
-          dailyBudget REAL,
-          monthlyBudget REAL,
-          allowedMerchants TEXT,
-          blockedCategories TEXT,
-          allowedStartTime TEXT,
-          allowedEndTime TEXT,
-          updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-      policy = null;
-    }
+    let { data: policy } = await supabase.from("policy_config").select("*").eq("user_id", userId).maybeSingle();
 
-    // Agar is user ke liye pehle se policy nahi hai, toh default values insert kar do
     if (!policy) {
-      db.prepare(`
-        INSERT INTO PolicyConfig (userId, maxSpendPerTx, manualApprovalAbove, dailyBudget, monthlyBudget, allowedMerchants, blockedCategories, allowedStartTime, allowedEndTime)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(userId, 63, -13, 150, 300, "Merchant A, Merchant B", "Gift Cards, Crypto", "08:00", "22:00");
+      await supabase.from("policy_config").insert([{
+        user_id: userId,
+        max_spend_per_tx: 63,
+        manual_approval_above: 15,
+        daily_budget: 150,
+        monthly_budget: 300,
+        allowed_merchants: "Merchant A, Merchant B",
+        blocked_categories: "Gift Cards, Crypto",
+        allowed_start_time: "08:00",
+        allowed_end_time: "22:00"
+      }]);
 
-      policy = db.prepare("SELECT * FROM PolicyConfig WHERE userId = ?").get(userId);
+      const res = await supabase.from("policy_config").select("*").eq("user_id", userId).single();
+      policy = res.data;
     }
 
-    db.close();
-    return NextResponse.json({ success: true, policy });
+    // Map database snake_case to frontend camelCase
+    const formattedPolicy = {
+      maxSpendPerTx: policy.max_spend_per_tx,
+      manualApprovalAbove: policy.manual_approval_above,
+      dailyBudget: policy.daily_budget,
+      monthlyBudget: policy.monthly_budget,
+      allowedMerchants: policy.allowed_merchants,
+      blockedCategories: policy.blocked_categories,
+      allowedStartTime: policy.allowed_start_time,
+      allowedEndTime: policy.allowed_end_time,
+    };
+
+    return NextResponse.json({ success: true, policy: formattedPolicy });
   } catch (error) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
@@ -83,64 +52,20 @@ export async function POST(request) {
       return NextResponse.json({ success: false, error: "userId is required" }, { status: 400 });
     }
 
-    const db = getDb();
+    const dbFields = { user_id: userId, updated_at: new Date() };
+    if (fields.maxSpendPerTx !== undefined) dbFields.max_spend_per_tx = fields.maxSpendPerTx;
+    if (fields.manualApprovalAbove !== undefined) dbFields.manual_approval_above = fields.manualApprovalAbove;
+    if (fields.dailyBudget !== undefined) dbFields.daily_budget = fields.dailyBudget;
+    if (fields.monthlyBudget !== undefined) dbFields.monthly_budget = fields.monthlyBudget;
+    if (fields.allowedMerchants !== undefined) dbFields.allowed_merchants = fields.allowedMerchants;
+    if (fields.blockedCategories !== undefined) dbFields.blocked_categories = fields.blockedCategories;
+    if (fields.allowedStartTime !== undefined) dbFields.allowed_start_time = fields.allowedStartTime;
+    if (fields.allowedEndTime !== undefined) dbFields.allowed_end_time = fields.allowedEndTime;
 
-    let current;
-    try {
-      current = db.prepare("SELECT * FROM PolicyConfig WHERE userId = ?").get(userId);
-    } catch (e) {
-      db.exec("DROP TABLE IF EXISTS PolicyConfig");
-      db.exec(`
-        CREATE TABLE PolicyConfig (
-          userId TEXT PRIMARY KEY,
-          maxSpendPerTx REAL,
-          manualApprovalAbove REAL,
-          dailyBudget REAL,
-          monthlyBudget REAL,
-          allowedMerchants TEXT,
-          blockedCategories TEXT,
-          allowedStartTime TEXT,
-          allowedEndTime TEXT,
-          updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-      current = null;
-    }
+    const { error } = await supabase.from("policy_config").upsert(dbFields, { onConflict: "user_id" });
+    if (error) throw error;
 
-    if (!current) {
-      db.prepare(`
-        INSERT INTO PolicyConfig (userId, maxSpendPerTx, manualApprovalAbove, dailyBudget, monthlyBudget, allowedMerchants, blockedCategories, allowedStartTime, allowedEndTime)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        userId,
-        fields.maxSpendPerTx ?? 63,
-        fields.manualApprovalAbove ?? -13,
-        fields.dailyBudget ?? 150,
-        fields.monthlyBudget ?? 300,
-        fields.allowedMerchants ?? "Merchant A, Merchant B",
-        fields.blockedCategories ?? "Gift Cards, Crypto",
-        fields.allowedStartTime ?? "08:00",
-        fields.allowedEndTime ?? "22:00"
-      );
-    } else {
-      const maxSpendPerTx = fields.maxSpendPerTx !== undefined ? fields.maxSpendPerTx : current.maxSpendPerTx;
-      const manualApprovalAbove = fields.manualApprovalAbove !== undefined ? fields.manualApprovalAbove : current.manualApprovalAbove;
-      const dailyBudget = fields.dailyBudget !== undefined ? fields.dailyBudget : current.dailyBudget;
-      const monthlyBudget = fields.monthlyBudget !== undefined ? fields.monthlyBudget : current.monthlyBudget;
-      const allowedMerchants = fields.allowedMerchants !== undefined ? fields.allowedMerchants : current.allowedMerchants;
-      const blockedCategories = fields.blockedCategories !== undefined ? fields.blockedCategories : current.blockedCategories;
-      const allowedStartTime = fields.allowedStartTime !== undefined ? fields.allowedStartTime : current.allowedStartTime;
-      const allowedEndTime = fields.allowedEndTime !== undefined ? fields.allowedEndTime : current.allowedEndTime;
-
-      db.prepare(`
-        UPDATE PolicyConfig 
-        SET maxSpendPerTx = ?, manualApprovalAbove = ?, dailyBudget = ?, monthlyBudget = ?, allowedMerchants = ?, blockedCategories = ?, allowedStartTime = ?, allowedEndTime = ?, updatedAt = CURRENT_TIMESTAMP
-        WHERE userId = ?
-      `).run(maxSpendPerTx, manualApprovalAbove, dailyBudget, monthlyBudget, allowedMerchants, blockedCategories, allowedStartTime, allowedEndTime, userId);
-    }
-
-    db.close();
-    return NextResponse.json({ success: true, message: "User-specific policy auto-synced!" });
+    return NextResponse.json({ success: true, message: "Cloud-synced with Supabase successfully!" });
   } catch (error) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }

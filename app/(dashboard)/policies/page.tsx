@@ -1,16 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function PoliciesPage() {
   const [isDark, setIsDark] = useState(false);
   const [loading, setLoading] = useState(true);
   const [syncStatus, setSyncStatus] = useState("Instant Sync Active");
   const [userId, setUserId] = useState("");
+  const router = useRouter();
 
   const [policy, setPolicy] = useState({
     maxSpendPerTx: 63,
-    manualApprovalAbove: -13,
+    manualApprovalAbove: 15,
     dailyBudget: 150,
     monthlyBudget: 300,
     allowedMerchants: "Merchant A, Merchant B",
@@ -31,16 +33,15 @@ export default function PoliciesPage() {
     return () => observer.disconnect();
   }, []);
 
-  // Get or create unique session user ID from localStorage
+  // Check login and fetch user-specific policies
   useEffect(() => {
-    let uid = localStorage.getItem("purchase_pal_user_id");
+    const uid = localStorage.getItem("purchase_pal_user_id");
     if (!uid) {
-      uid = "user_" + Math.random().toString(36).substring(2, 9);
-      localStorage.setItem("purchase_pal_user_id", uid);
+      router.push("/login"); // Redirect to login if not authenticated
+      return;
     }
     setUserId(uid);
 
-    // Fetch policies specific to this user
     fetch(`/api/policies?userId=${uid}`)
       .then((res) => res.json())
       .then((data) => {
@@ -50,7 +51,7 @@ export default function PoliciesPage() {
       })
       .catch((err) => console.error("Failed to load user policies", err))
       .finally(() => setLoading(false));
-  }, []);
+  }, [router]);
 
   // Auto-save handler passing the unique userId
   const handleFieldChange = async (field: string, value: any) => {
@@ -118,7 +119,7 @@ export default function PoliciesPage() {
             <div className="flex justify-between items-center pb-4 border-b border-zinc-700/20">
               <div>
                 <h2 className="text-lg font-bold">1. Policy Configuration Controls</h2>
-                <p className="text-xs opacity-60">Isolated session ID: <span className="font-mono text-purple-400">{userId}</span></p>
+                <p className="text-xs opacity-60">Logged in user: <span className="font-mono text-purple-400">{userId}</span></p>
               </div>
               <span className="px-3 py-1 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
