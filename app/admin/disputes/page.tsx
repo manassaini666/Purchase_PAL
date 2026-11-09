@@ -124,7 +124,6 @@ export default function AdminDisputesPage() {
                     </p>
                   </div>
 
-                  {/* AI Judge Box with Trigger Button */}
                   <div className={`p-4 border rounded-lg mb-5 ${
                     isDark ? "bg-zinc-800 border-zinc-700 text-zinc-200" : "bg-zinc-50 border-zinc-200 text-zinc-800"
                   }`}>
@@ -137,15 +136,14 @@ export default function AdminDisputesPage() {
                         onClick={() => handleAction(uniqueId, { action: "RUN_AI_JUDGE" })}
                         className="px-3 py-1 text-xs font-semibold rounded bg-purple-600 hover:bg-purple-500 text-white transition-colors shadow-sm disabled:opacity-50"
                       >
-                        ▶ Run Groq AI Judge
+                        ▶ Re-run AI Judge
                       </button>
                     </div>
                     <p className="text-sm font-medium mt-1">
-                      {d.aiVerdict || "Click 'Run Groq AI Judge' to analyze via Llama model..."}
+                      {d.aiVerdict || "Pending automated evaluation..."}
                     </p>
                   </div>
 
-                  {/* Manual Override Action Buttons */}
                   <div className={`flex flex-wrap items-center justify-end gap-3 pt-3 border-t ${isDark ? "border-zinc-800" : "border-zinc-100"}`}>
                     <button
                       disabled={processingId === d.id}
