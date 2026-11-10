@@ -10,6 +10,13 @@ export default function PolicyManager() {
   const [message, setMessage] = useState("");
   const [userEmail, setUserEmail] = useState("");
 
+  // AI Chatbot States
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatInput, setChatInput] = useState("");
+  const [messages, setMessages] = useState([
+    { sender: "ai", text: "Namaste! Main aapka Purchase Pal AI Assistant hoon. Aap apni spending policies ke baare me kuch bhi pooch sakte hain!" }
+  ]);
+
   const [policies, setPolicies] = useState({
     max_spend_per_tx: 63,
     manual_approval_above: 32,
@@ -91,7 +98,7 @@ export default function PolicyManager() {
         }, { onConflict: "user_id" });
 
       setMessage("Policies updated successfully!");
-    } catch (err: any) {
+    } catch (err) {
       setMessage("Policies updated successfully!");
     } finally {
       setSaving(false);
@@ -104,16 +111,42 @@ export default function PolicyManager() {
     router.push("/login");
   };
 
+  const handleSendMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!chatInput.trim()) return;
+
+    const userMsg = chatInput;
+    const newMessages = [...messages, { sender: "user", text: userMsg }];
+    setMessages(newMessages);
+    setChatInput("");
+
+    // Smart AI response logic based on current policies
+    setTimeout(() => {
+      let aiReply = "Main aapki isme madad kar sakta hoon! Aap apni limits yahan upar form me update kar sakte hain.";
+      const lower = userMsg.toLowerCase();
+
+      if (lower.includes("budget") || lower.includes("limit")) {
+        aiReply = `Aapka current Daily Budget ₹${policies.daily_budget} aur Monthly Budget ₹${policies.monthly_budget} set hai.`;
+      } else if (lower.includes("approve") || lower.includes("threshold")) {
+        aiReply = `Aapka Manual Approval Threshold ₹${policies.manual_approval_above} hai. Isse kam ki transaction auto-approve ho jayegi!`;
+      } else if (lower.includes("merchant") || lower.includes("allowed")) {
+        aiReply = `Allowed Merchants hain: ${policies.allowed_merchants}.`;
+      }
+
+      setMessages((prev) => [...prev, { sender: "ai", text: aiReply }]);
+    }, 500);
+  };
+
   if (loading) {
     return <div className="p-8 text-center text-zinc-400">Loading your policies...</div>;
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6 text-white">
+    <div className="max-w-4xl mx-auto p-6 pt-10 space-y-6 text-white relative min-h-screen pb-24">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-purple-400">Purchase Pal - Policy Manager</h1>
-          <p className="text-xs text-zinc-400">Mode: <span className="text-purple-300 font-mono">{userEmail || "Guest Mode"}</span></p>
+          <p className="text-xs text-zinc-400 mt-1">Mode: <span className="text-purple-300 font-mono">{userEmail || "Guest Mode"}</span></p>
         </div>
         <button
           onClick={handleLogout}
@@ -231,6 +264,62 @@ export default function PolicyManager() {
           {saving ? "Saving..." : "Save Policies"}
         </button>
       </form>
+
+      {/* Floating AI Chatbot Widget */}
+      <div className="fixed bottom-6 right-6 z-50">
+        {!isChatOpen ? (
+          <button
+            onClick={() => setIsChatOpen(true)}
+            className="bg-purple-600 hover:bg-purple-700 text-white px-5 py-3 rounded-full shadow-2xl flex items-center gap-2 font-medium text-sm transition transform hover:scale-105 cursor-pointer border border-purple-400/30"
+          >
+            💬 Ask Purchase Pal AI
+          </button>
+        ) : (
+          <div className="bg-zinc-900 border border-zinc-800 w-80 md:w-96 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+            {/* Chat Header */}
+            <div className="bg-purple-900/40 border-b border-zinc-800 px-4 py-3 flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></div>
+                <h3 className="text-sm font-bold text-white">Purchase Pal AI Assistant</h3>
+              </div>
+              <button
+                onClick={() => setIsChatOpen(false)}
+                className="text-zinc-400 hover:text-white text-lg font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Chat Messages */}
+            <div className="p-4 h-72 overflow-y-auto space-y-3 text-xs">
+              {messages.map((m, idx) => (
+                <div key={idx} className={`flex ${m.sender === "user" ? "justify-end" : "justify-start"}`}>
+                  <div className={`max-w-[80%] p-3 rounded-xl ${m.sender === "user" ? "bg-purple-600 text-white" : "bg-zinc-800 text-zinc-200 border border-zinc-700"}`}>
+                    {m.text}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Chat Input */}
+            <form onSubmit={handleSendMessage} className="border-t border-zinc-800 p-3 bg-zinc-950 flex gap-2">
+              <input
+                type="text"
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                placeholder="Ask about your budget, limits..."
+                className="flex-1 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"
+              />
+              <button
+                type="submit"
+                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-xs font-medium cursor-pointer transition"
+              >
+                Send
+              </button>
+            </form>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
