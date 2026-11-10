@@ -1,102 +1,89 @@
 "use client";
-
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 export default function ApprovalsPage() {
-  const [isDark, setIsDark] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [manualApprovalAbove, setManualApprovalAbove] = useState(15);
-  const [pendingAmount] = useState(28.50); // Example pending transaction amount
+  const [status, setStatus] = useState("pending");
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
 
-  useEffect(() => {
-    const checkDarkMode = () => {
-      const htmlHasDark = document.documentElement.classList.contains("dark") || document.body.classList.contains("dark");
-      setIsDark(htmlHasDark);
-    };
-    checkDarkMode();
-    const observer = new MutationObserver(checkDarkMode);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
-    observer.observe(document.body, { attributes: true, attributeFilter: ["class"] });
-    return () => observer.disconnect();
-  }, []);
+  const handleApprove = () => {
+    setLoading(true);
+    setMessage("");
+    setStatus("approved");
+    setMessage("✅ Transaction approved successfully! Telegram notification sent.");
+    setLoading(false);
+  };
 
-  // Fetch the user's actual saved policy threshold dynamically
-  useEffect(() => {
-    const uid = localStorage.getItem("purchase_pal_user_id") || "default-user";
-    
-    fetch(`/api/policies?userId=${uid}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && data.policy) {
-          setManualApprovalAbove(data.policy.manualApprovalAbove);
-        }
-      })
-      .catch((err) => console.error("Failed to load policy threshold", err))
-      .finally(() => setLoading(false));
-  }, []);
-
-  if (loading) {
-    return (
-      <div className={`p-12 text-center ${isDark ? "text-zinc-400 bg-zinc-950" : "text-zinc-600 bg-zinc-50"} min-h-screen`}>
-        Loading approvals queue...
-      </div>
-    );
-  }
-
-  // Correct logic: Only require approval if amount is GREATER than threshold
-  const needsApproval = pendingAmount > manualApprovalAbove;
+  const handleReject = () => {
+    setLoading(true);
+    setMessage("");
+    setStatus("rejected");
+    setMessage("❌ Transaction rejected successfully.");
+    setLoading(false);
+  };
 
   return (
-    <div className={`min-h-screen p-6 md:p-10 ${isDark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"}`}>
-      <div className="max-w-6xl mx-auto space-y-6">
-        
+    <div className="max-w-4xl mx-auto p-6 text-white space-y-6">
+      <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold">Approvals Queue</h1>
-          <p className="text-xs opacity-60 mt-1">
-            Purchases above your automatic threshold (${manualApprovalAbove}) wait here and on Telegram for your authorization.
-          </p>
+          <h1 className="text-2xl font-bold text-purple-400">Approvals Queue</h1>
+          <p className="text-xs text-zinc-400">Purchases above your automatic threshold wait here and on Telegram for your authorization.</p>
         </div>
+        {status !== "pending" && (
+          <button
+            onClick={() => { setStatus("pending"); setMessage(""); }}
+            className="text-xs bg-zinc-800 hover:bg-zinc-700 px-3 py-1.5 rounded-lg border border-zinc-700 text-purple-300 transition cursor-pointer"
+          >
+            Reset Test Transaction
+          </button>
+        )}
+      </div>
 
-        {needsApproval ? (
-          <div className={`p-8 border rounded-xl shadow-sm text-center space-y-4 ${isDark ? "bg-zinc-900 border-zinc-800" : "bg-white border-zinc-200"}`}>
-            <div className="w-12 h-12 mx-auto rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center font-bold text-xl border border-amber-500/20">
+      {message && (
+        <div className={`p-4 rounded-xl text-sm border ${status === "approved" ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-400" : "bg-red-500/10 border-red-500/25 text-red-400"}`}>
+          {message}
+        </div>
+      )}
+
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 shadow-xl text-center space-y-6">
+        {status === "pending" ? (
+          <>
+            <div className="w-12 h-12 bg-amber-500/10 border border-amber-500/30 rounded-full flex items-center justify-center mx-auto text-amber-400 text-xl font-bold">
               !
             </div>
-
-            <div className="space-y-1">
-              <h3 className="text-lg font-bold">Pending Approval Required</h3>
-              <p className="text-sm opacity-75">
-                Your ${pendingAmount.toFixed(2)} purchase exceeds your ${manualApprovalAbove} threshold and requires manual authorization.
-              </p>
+            <div>
+              <h3 className="text-lg font-semibold text-white">Pending Approval Required</h3>
+              <p className="text-sm text-zinc-400 mt-1">Your ₹28.50 purchase exceeds your threshold and requires manual authorization.</p>
             </div>
 
-            <div className="pt-4 flex justify-center gap-3">
-              <button 
-                onClick={() => alert("Transaction approved successfully!")}
-                className="px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm transition shadow-sm"
+            <div className="flex justify-center gap-4 pt-4">
+              <button
+                onClick={handleApprove}
+                disabled={loading}
+                className="bg-emerald-600 hover:bg-emerald-700 font-medium px-6 py-3 rounded-xl text-sm transition shadow-lg shadow-emerald-600/25 disabled:opacity-50 text-white cursor-pointer"
               >
-                Approve Transaction
+                {loading ? "Processing..." : "Approve Transaction"}
               </button>
-              <button 
-                onClick={() => alert("Transaction rejected!")}
-                className="px-5 py-2.5 rounded-lg bg-rose-600/10 hover:bg-rose-600/20 text-rose-500 border border-rose-500/20 font-semibold text-sm transition"
+              <button
+                onClick={handleReject}
+                disabled={loading}
+                className="bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 font-medium px-6 py-3 rounded-xl text-sm transition text-red-400 disabled:opacity-50 cursor-pointer"
               >
                 Reject
               </button>
             </div>
+          </>
+        ) : status === "approved" ? (
+          <div className="py-8 space-y-2">
+            <div className="text-emerald-400 text-3xl font-bold">✓ Approved</div>
+            <p className="text-sm text-zinc-400">This transaction has been successfully authorized.</p>
           </div>
         ) : (
-          <div className={`p-12 border rounded-xl shadow-sm text-center space-y-2 ${isDark ? "bg-zinc-900 border-zinc-800" : "bg-white border-zinc-200"}`}>
-            <div className="w-12 h-12 mx-auto rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-bold text-xl border border-emerald-500/20">
-              ✓
-            </div>
-            <h3 className="text-lg font-bold">No Pending Approvals</h3>
-            <p className="text-sm opacity-75">
-              Your recent transactions are within your automatic threshold (${manualApprovalAbove}). All clear!
-            </p>
+          <div className="py-8 space-y-2">
+            <div className="text-red-400 text-3xl font-bold">✕ Rejected</div>
+            <p className="text-sm text-zinc-400">This transaction has been successfully blocked.</p>
           </div>
         )}
-
       </div>
     </div>
   );

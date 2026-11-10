@@ -6,27 +6,19 @@ export async function POST(request) {
     const { action, email, password } = await request.json();
 
     if (action === "signup") {
-      // Check karo ki user pehle se to nahi hai
-      const { data: existingUser } = await supabase
-        .from("users")
-        .select("*")
-        .eq("email", email)
-        .maybeSingle();
+      // Use Supabase Auth signup to handle email verification and token generation
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
 
-      if (existingUser) {
-        return NextResponse.json({ success: false, error: "User already exists. Please sign in." }, { status: 400 });
+      if (error) {
+        return NextResponse.json({ success: false, error: error.message }, { status: 400 });
       }
-
-      // New user insert karo
-      const { error: insertError } = await supabase
-        .from("users")
-        .insert([{ email, password }]);
-
-      if (insertError) throw insertError;
 
       // Default policy config insert/upsert kar do
       await supabase.from("policy_config").upsert([{
-        user_id: email,
+        user_id: data.user?.id || email,
         max_spend_per_tx: 63,
         manual_approval_above: 15,
         daily_budget: 150,
@@ -37,23 +29,21 @@ export async function POST(request) {
         allowed_end_time: "22:00"
       }]);
 
-      return NextResponse.json({ success: true, message: "Signup successful!" });
-    } 
-    
-    if (action === "login") {
-      // Database me email aur password match karo
-      const { data: user, error } = await supabase
-        .from("users")
-        .select("*")
-        .eq("email", email)
-        .eq("password", password)
-        .maybeSingle();
+      return NextResponse.json({ success: true, message: "Signup successful! Please check your email for verification." });
+    }
 
-      if (error || !user) {
-        return NextResponse.json({ success: false, error: "Invalid email or password" }, { status: 400 });
+    if (action === "login") {
+      // Use Supabase Auth signInWithPassword to enforce email verification and sessions
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        return NextResponse.json({ success: false, error: error.message }, { status: 400 });
       }
 
-      return NextResponse.json({ success: true, message: "Login successful!" });
+      return NextResponse.json({ success: true, message: "Login successful!", session: data.session });
     }
 
     return NextResponse.json({ success: false, error: "Invalid action" }, { status: 400 });

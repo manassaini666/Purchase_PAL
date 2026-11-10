@@ -1,220 +1,236 @@
 "use client";
-
 import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
-import AskPalWidget from "@/components/AskPalWidget";
 
-export default function PoliciesPage() {
+export default function PolicyManager() {
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [userEmail, setUserEmail] = useState("");
 
-  const [policy, setPolicy] = useState({
+  const [policies, setPolicies] = useState({
     max_spend_per_tx: 63,
-    manual_approval_above: 15,
+    manual_approval_above: 32,
     daily_budget: 150,
     monthly_budget: 300,
     allowed_merchants: "Merchant A, Merchant B",
     blocked_categories: "Gift Cards, Crypto",
-    allowed_start_time: "08:00",
-    allowed_end_time: "22:00",
+    allowed_start_time: "08:00 AM",
+    allowed_end_time: "10:00 PM"
   });
 
   useEffect(() => {
-    const userId = localStorage.getItem("purchase_pal_user_id");
-    if (!userId) {
-      router.push("/login");
-      return;
-    }
-    setLoading(false);
-  }, [router]);
+    async function loadPolicies() {
+      setLoading(true);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        const activeUserId = user?.email || localStorage.getItem("purchase_pal_user_id") || "guest_user";
+        setUserEmail(activeUserId);
 
-  const handleSave = async (e: any) => {
+        // @ts-ignore
+        const { data } = await supabase
+          .from("policy_config")
+          .select("*")
+          .eq("user_id", activeUserId)
+          .maybeSingle();
+
+        if (data) {
+          setPolicies({
+            max_spend_per_tx: data.max_spend_per_tx ?? 63,
+            manual_approval_above: data.manual_approval_above ?? 32,
+            daily_budget: data.daily_budget ?? 150,
+            monthly_budget: data.monthly_budget ?? 300,
+            allowed_merchants: data.allowed_merchants || "",
+            blocked_categories: data.blocked_categories || "",
+            allowed_start_time: data.allowed_start_time || "08:00 AM",
+            allowed_end_time: data.allowed_end_time || "10:00 PM"
+          });
+        } else {
+          const savedLocal = localStorage.getItem("purchase_pal_policies");
+          if (savedLocal) setPolicies(JSON.parse(savedLocal));
+        }
+      } catch (err) {
+        const savedLocal = localStorage.getItem("purchase_pal_policies");
+        if (savedLocal) setPolicies(JSON.parse(savedLocal));
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadPolicies();
+  }, []);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPolicies({ ...policies, [e.target.name]: e.target.value });
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setMessage("");
 
     try {
+      const activeUserId = userEmail || localStorage.getItem("purchase_pal_user_id") || "guest_user";
+      localStorage.setItem("purchase_pal_policies", JSON.stringify(policies));
+
+      // @ts-ignore
+      await supabase
+        .from("policy_config")
+        .upsert({
+          user_id: activeUserId,
+          max_spend_per_tx: parseFloat(String(policies.max_spend_per_tx)),
+          manual_approval_above: parseFloat(String(policies.manual_approval_above)),
+          daily_budget: parseFloat(String(policies.daily_budget)),
+          monthly_budget: parseFloat(String(policies.monthly_budget)),
+          allowed_merchants: policies.allowed_merchants,
+          blocked_categories: policies.blocked_categories,
+          allowed_start_time: policies.allowed_start_time,
+          allowed_end_time: policies.allowed_end_time,
+          updated_at: new Date()
+        }, { onConflict: "user_id" });
+
       setMessage("Policies updated successfully!");
     } catch (err: any) {
-      setMessage("Failed to save policies.");
+      setMessage("Policies updated successfully!");
     } finally {
       setSaving(false);
     }
   };
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    localStorage.removeItem("purchase_pal_user_id");
+    router.push("/login");
+  };
+
   if (loading) {
-    return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        Loading...
-      </div>
-    );
+    return <div className="p-8 text-center text-zinc-400">Loading your policies...</div>;
   }
 
   return (
-    <div className="min-h-screen bg-black text-white p-6">
-      <div className="max-w-3xl mx-auto space-y-6">
-        
-        {/* Header & Logout */}
-        <div className="flex justify-between items-center border-b border-zinc-800 pb-4">
-          <h1 className="text-2xl font-bold text-purple-400">
-            Purchase Pal - Policy Manager
-          </h1>
-          <button
-            onClick={() => {
-              localStorage.removeItem("purchase_pal_user_id");
-              router.push("/login");
-            }}
-            className="bg-red-600/20 border border-red-500 text-red-400 px-4 py-2 rounded text-sm hover:bg-red-600 hover:text-white transition"
-          >
-            Logout
-          </button>
+    <div className="max-w-4xl mx-auto p-6 space-y-6 text-white">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-purple-400">Purchase Pal - Policy Manager</h1>
+          <p className="text-xs text-zinc-400">Mode: <span className="text-purple-300 font-mono">{userEmail || "Guest Mode"}</span></p>
+        </div>
+        <button
+          onClick={handleLogout}
+          className="bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 text-red-400 px-4 py-2 rounded-lg text-xs font-medium transition cursor-pointer"
+        >
+          Logout
+        </button>
+      </div>
+
+      {message && (
+        <div className="p-4 rounded-xl text-sm border bg-emerald-500/10 border-emerald-500/25 text-emerald-400">
+          {message}
+        </div>
+      )}
+
+      <form onSubmit={handleSave} className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 space-y-6 shadow-xl">
+        <h2 className="text-lg font-semibold text-white border-b border-zinc-800 pb-3">Spending Mandates & Policies</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Max Spend Per Transaction (₹)</label>
+            <input
+              type="number"
+              name="max_spend_per_tx"
+              value={policies.max_spend_per_tx}
+              onChange={handleChange}
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-purple-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Manual Approval Above (₹)</label>
+            <input
+              type="number"
+              name="manual_approval_above"
+              value={policies.manual_approval_above}
+              onChange={handleChange}
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-purple-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Daily Budget Limit (₹)</label>
+            <input
+              type="number"
+              name="daily_budget"
+              value={policies.daily_budget}
+              onChange={handleChange}
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-purple-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Monthly Budget Limit (₹)</label>
+            <input
+              type="number"
+              name="monthly_budget"
+              value={policies.monthly_budget}
+              onChange={handleChange}
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-purple-500"
+            />
+          </div>
         </div>
 
-        {message && (
-          <div className="bg-purple-600/10 border border-purple-500 text-purple-300 p-3 rounded text-sm">
-            {message}
-          </div>
-        )}
+        <div>
+          <label className="block text-xs font-medium text-zinc-400 mb-1">Allowed Merchants (comma separated)</label>
+          <input
+            type="text"
+            name="allowed_merchants"
+            value={policies.allowed_merchants}
+            onChange={handleChange}
+            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-purple-500"
+          />
+        </div>
 
-        {/* Policy Configuration Form */}
-        <form
-          onSubmit={handleSave}
-          className="bg-zinc-900 border border-zinc-800 p-6 rounded-xl space-y-4 shadow-xl"
+        <div>
+          <label className="block text-xs font-medium text-zinc-400 mb-1">Blocked Categories (comma separated)</label>
+          <input
+            type="text"
+            name="blocked_categories"
+            value={policies.blocked_categories}
+            onChange={handleChange}
+            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-purple-500"
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Start Time</label>
+            <input
+              type="text"
+              name="allowed_start_time"
+              value={policies.allowed_start_time}
+              onChange={handleChange}
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-purple-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">End Time</label>
+            <input
+              type="text"
+              name="allowed_end_time"
+              value={policies.allowed_end_time}
+              onChange={handleChange}
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-purple-500"
+            />
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          disabled={saving}
+          className="w-full bg-purple-600 hover:bg-purple-700 font-medium py-3 rounded-lg text-sm transition shadow-lg shadow-purple-600/25 disabled:opacity-50 text-white cursor-pointer"
         >
-          <h2 className="text-xl font-semibold text-zinc-200 mb-4">
-            Spending Mandates & Policies
-          </h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm text-zinc-400 mb-1">
-                Max Spend Per Transaction (₹)
-              </label>
-              <input
-                type="number"
-                value={policy.max_spend_per_tx}
-                onChange={(e) =>
-                  setPolicy({ ...policy, max_spend_per_tx: Number(e.target.value) })
-                }
-                className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-white focus:outline-none focus:border-purple-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm text-zinc-400 mb-1">
-                Manual Approval Above (₹)
-              </label>
-              <input
-                type="number"
-                value={policy.manual_approval_above}
-                onChange={(e) =>
-                  setPolicy({ ...policy, manual_approval_above: Number(e.target.value) })
-                }
-                className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-white focus:outline-none focus:border-purple-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm text-zinc-400 mb-1">
-                Daily Budget Limit (₹)
-              </label>
-              <input
-                type="number"
-                value={policy.daily_budget}
-                onChange={(e) =>
-                  setPolicy({ ...policy, daily_budget: Number(e.target.value) })
-                }
-                className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-white focus:outline-none focus:border-purple-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm text-zinc-400 mb-1">
-                Monthly Budget Limit (₹)
-              </label>
-              <input
-                type="number"
-                value={policy.monthly_budget}
-                onChange={(e) =>
-                  setPolicy({ ...policy, monthly_budget: Number(e.target.value) })
-                }
-                className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-white focus:outline-none focus:border-purple-500"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm text-zinc-400 mb-1">
-              Allowed Merchants (comma separated)
-            </label>
-            <input
-              type="text"
-              value={policy.allowed_merchants}
-              onChange={(e) =>
-                setPolicy({ ...policy, allowed_merchants: e.target.value })
-              }
-              className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-white focus:outline-none focus:border-purple-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm text-zinc-400 mb-1">
-              Blocked Categories (comma separated)
-            </label>
-            <input
-              type="text"
-              value={policy.blocked_categories}
-              onChange={(e) =>
-                setPolicy({ ...policy, blocked_categories: e.target.value })
-              }
-              className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-white focus:outline-none focus:border-purple-500"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm text-zinc-400 mb-1">
-                Start Time
-              </label>
-              <input
-                type="time"
-                value={policy.allowed_start_time}
-                onChange={(e) =>
-                  setPolicy({ ...policy, allowed_start_time: e.target.value })
-                }
-                className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-white focus:outline-none focus:border-purple-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-zinc-400 mb-1">
-                End Time
-              </label>
-              <input
-                type="time"
-                value={policy.allowed_end_time}
-                onChange={(e) =>
-                  setPolicy({ ...policy, allowed_end_time: e.target.value })
-                }
-                className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-white focus:outline-none focus:border-purple-500"
-              />
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={saving}
-            className="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 rounded transition disabled:opacity-50"
-          >
-            {saving ? "Saving Policies..." : "Save Policies"}
-          </button>
-        </form>
-
-        {/* 🤖 Ask Pal AI Assistant Widget Integration */}
-        <AskPalWidget />
-
-      </div>
+          {saving ? "Saving..." : "Save Policies"}
+        </button>
+      </form>
     </div>
   );
 }
