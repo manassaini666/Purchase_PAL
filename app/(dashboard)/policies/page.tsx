@@ -125,9 +125,9 @@ export default function PoliciesPage() {
       const lower = userMsg.toLowerCase();
 
       if (lower.includes("budget") || lower.includes("limit")) {
-        aiReply = `Aapka current Daily Budget ₹${policies.daily_budget} aur Monthly Budget ₹${policies.monthly_budget} set hai.`;
+        aiReply = `Aapka current Daily Budget $${policies.daily_budget} aur Monthly Budget $${policies.monthly_budget} set hai.`;
       } else if (lower.includes("approve") || lower.includes("threshold")) {
-        aiReply = `Aapka Manual Approval Threshold ₹${policies.manual_approval_above} hai. Isse kam ki transaction auto-approve ho jayegi!`;
+        aiReply = `Aapka Manual Approval Threshold $${policies.manual_approval_above} hai. Isse kam ki transaction auto-approve ho jayegi!`;
       } else if (lower.includes("merchant") || lower.includes("allowed")) {
         aiReply = `Allowed Merchants hain: ${policies.allowed_merchants}.`;
       }
@@ -165,7 +165,7 @@ export default function PoliciesPage() {
         <h2 className="text-lg font-semibold text-white border-b border-zinc-800 pb-3">Spending Mandates &amp; Policies</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-xs font-medium text-zinc-400 mb-1">Max Spend Per Transaction (₹)</label>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Max Spend Per Transaction ($)</label>
             <input
               type="number"
               name="max_spend_per_tx"
@@ -176,7 +176,7 @@ export default function PoliciesPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-zinc-400 mb-1">Manual Approval Above (₹)</label>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Manual Approval Above ($)</label>
             <input
               type="number"
               name="manual_approval_above"
@@ -187,7 +187,7 @@ export default function PoliciesPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-zinc-400 mb-1">Daily Budget Limit (₹)</label>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Daily Budget Limit ($)</label>
             <input
               type="number"
               name="daily_budget"
@@ -198,7 +198,7 @@ export default function PoliciesPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-zinc-400 mb-1">Monthly Budget Limit (₹)</label>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Monthly Budget Limit ($)</label>
             <input
               type="number"
               name="monthly_budget"

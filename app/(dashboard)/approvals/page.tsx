@@ -23,7 +23,7 @@ export default function ApprovalsPage() {
 
         if (txAmount <= limit) {
           setStatus("auto-approved");
-          setMessage(`✅ Transaction of ₹${txAmount} is within your auto-approval threshold (₹${limit}). Automatically approved!`);
+          setMessage(`✅ Transaction of $${txAmount} is within your auto-approval threshold ($${limit}). Automatically approved!`);
         } else {
           setStatus("pending");
           setMessage("");
@@ -34,7 +34,7 @@ export default function ApprovalsPage() {
     } else {
       if (txAmount <= threshold) {
         setStatus("auto-approved");
-        setMessage(`✅ Transaction of ₹${txAmount} is within your threshold (₹${threshold}). Automatically approved!`);
+        setMessage(`✅ Transaction of $${txAmount} is within your threshold ($${threshold}). Automatically approved!`);
       }
     }
   }, []);
@@ -58,7 +58,7 @@ export default function ApprovalsPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-purple-400">Approvals Queue</h1>
-          <p className="text-xs text-zinc-400 mt-1">Current Manual Approval Threshold: <span className="text-purple-300 font-mono">₹{threshold}</span></p>
+          <p className="text-xs text-zinc-400 mt-1">Current Manual Approval Threshold: <span className="text-purple-300 font-mono">${threshold}</span></p>
         </div>
         <button
           onClick={() => {
@@ -90,7 +90,7 @@ export default function ApprovalsPage() {
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-white">Pending Approval Required</h3>
-                <p className="text-sm text-zinc-400 mt-1">Your ₹{txAmount} purchase exceeds your threshold (₹{threshold}) and requires manual authorization.</p>
+                <p className="text-sm text-zinc-400 mt-1">Your ${txAmount} purchase exceeds your threshold (${threshold}) and requires manual authorization.</p>
               </div>
 
               <div className="flex justify-center gap-4 pt-4">

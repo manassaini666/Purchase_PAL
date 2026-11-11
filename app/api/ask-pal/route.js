@@ -29,10 +29,10 @@ export async function POST(request) {
       answer = `Your active operational spending hours are set from ${startTime} to ${endTime}. Transactions attempted outside these hours will require review.`;
     } 
     else if (lowerQ.includes("budget") || lowerQ.includes("daily") || lowerQ.includes("monthly") || lowerQ.includes("limit")) {
-      answer = `Here are your current active budget limits: ₹${dailyBudget} per day and ₹${monthlyBudget} per month.`;
+      answer = `Here are your current active budget limits: $${dailyBudget} per day and $${monthlyBudget} per month.`;
     } 
     else if (lowerQ.includes("transaction") || lowerQ.includes("spend") || lowerQ.includes("per tx")) {
-      answer = `Your policy permits a maximum spend of ₹${maxSpend} per single transaction. Any amount above ₹${manualApproval} requires manual approval.`;
+      answer = `Your policy permits a maximum spend of $${maxSpend} per single transaction. Any amount above $${manualApproval} requires manual approval.`;
     } 
     else if (lowerQ.includes("merchant") || lowerQ.includes("store") || lowerQ.includes("shop") || lowerQ.includes("where")) {
       answer = `Your approved and whitelisted merchants are: ${allowedMerchants}.`;
@@ -41,10 +41,10 @@ export async function POST(request) {
       answer = `Your currently blocked or restricted categories are: ${blockedCategories}.`;
     } 
     else if (lowerQ.includes("buy") || lowerQ.includes("afford") || lowerQ.includes("purchase") || lowerQ.includes("keyboard") || lowerQ.includes("mac") || lowerQ.includes("laptop") || lowerQ.includes("can i")) {
-      answer = `Based on your rules, you can spend up to ₹${maxSpend} per transaction without manual review. Purchases above ₹${manualApproval} need approval, and make sure you're shopping within your allowed hours (${startTime} to ${endTime})!`;
+      answer = `Based on your rules, you can spend up to $${maxSpend} per transaction without manual review. Purchases above $${manualApproval} need approval, and make sure you're shopping within your allowed hours (${startTime} to ${endTime})!`;
     } 
     else {
-      answer = `Hello! I'm your Purchase Pal assistant. I've reviewed your active policies: your max spend per transaction is ₹${maxSpend}, daily budget is ₹${dailyBudget}, and allowed hours are ${startTime} to ${endTime}. Feel free to ask me about your budget, transaction limits, approved merchants, or timings!`;
+      answer = `Hello! I'm your Purchase Pal assistant. I've reviewed your active policies: your max spend per transaction is $${maxSpend}, daily budget is $${dailyBudget}, and allowed hours are ${startTime} to ${endTime}. Feel free to ask me about your budget, transaction limits, approved merchants, or timings!`;
     }
 
     return NextResponse.json({ success: true, answer });
