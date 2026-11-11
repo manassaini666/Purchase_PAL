@@ -219,7 +219,7 @@ export default function PoliciesPage() {
               />
             </div>
             <div>
-              <label className={`text-xs font-medium ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>Manual Approval Above ($)</label>
+              <label className={`text-xs font-medium ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>Approval Above ($)</label>
               <input
                 type="number"
                 value={approvalThreshold}

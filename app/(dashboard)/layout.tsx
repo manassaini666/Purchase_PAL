@@ -62,8 +62,8 @@ export default function DashboardLayout({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           
           {/* Logo & Nav Links */}
-          <div className="flex items-center gap-8">
-            <div className="flex items-center gap-2 font-bold tracking-tight">
+          <div className="flex min-w-0 items-center gap-3 sm:gap-8">
+            <div className="flex shrink-0 items-center gap-2 font-bold tracking-tight">
               <span className="h-3 w-3 rounded-full bg-emerald-500 animate-pulse"></span>
               <span className="text-lg">Purchase Pal</span>
             </div>
@@ -90,15 +90,25 @@ export default function DashboardLayout({
                 );
               })}
             </nav>
+
+            <span className={`inline-flex shrink-0 items-center rounded-full border px-2 py-1 text-[10px] font-semibold leading-tight sm:px-2.5 sm:text-xs ${
+              isDark
+                ? "border-amber-800/70 bg-amber-950/60 text-amber-300"
+                : "border-amber-300 bg-amber-50 text-amber-800"
+            }`}>
+              Sandbox · no real money
+            </span>
           </div>
 
           {/* Right Action Bar: Telegram Badge, Theme Toggle & Sandbox Badge */}
-          <div className="flex items-center gap-3">
-            <TelegramStatusBadge />
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="hidden sm:block">
+              <TelegramStatusBadge />
+            </div>
 
             <button
               onClick={toggleTheme}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors ${
+              className={`inline-flex items-center gap-1.5 px-2 py-1.5 text-[10px] sm:px-3 sm:text-xs rounded-xl font-medium border transition-colors ${
                 isDark 
                   ? "border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800" 
                   : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-100"

@@ -88,6 +88,9 @@ export default function ApprovalsPage() {
           </>
         )}
       </div>
+      <p className={`text-xs ${isDark ? "text-zinc-500" : "text-zinc-600"}`}>
+        merchant_a and merchant_b are demo labels. All sandbox payments go to one sandbox merchant account.
+      </p>
     </div>
   );
 }
