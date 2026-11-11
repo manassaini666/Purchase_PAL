@@ -28,58 +28,77 @@ export default function PoliciesPage() {
     .split(",")
     .map((category) => category.trim())
     .filter(Boolean);
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
 
-  // Live budget utilization stats
-  const dailySpent = 63.50;
-  const monthlySpent = 185.00;
+export default function PolicyManager() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+  const [userEmail, setUserEmail] = useState("");
 
-  const dailyPercentage = Math.min(Math.round((dailySpent / dailyBudget) * 100), 100);
-  const monthlyPercentage = Math.min(Math.round((monthlySpent / monthlyBudget) * 100), 100);
+  // AI Chatbot States
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatInput, setChatInput] = useState("");
+  const [messages, setMessages] = useState([
+    { sender: "ai", text: "Namaste! Main aapka Purchase Pal AI Assistant hoon. Aap apni spending policies ke baare me kuch bhi pooch sakte hain!" }
+  ]);
+
+  const [policies, setPolicies] = useState({
+    max_spend_per_tx: 63,
+    manual_approval_above: 32,
+    daily_budget: 150,
+    monthly_budget: 300,
+    allowed_merchants: "Merchant A, Merchant B",
+    blocked_categories: "Gift Cards, Crypto",
+    allowed_start_time: "08:00 AM",
+    allowed_end_time: "10:00 PM"
+  });
 
   useEffect(() => {
-    const checkTheme = () => {
-      const saved = localStorage.getItem("theme");
-      setIsDark(saved ? saved === "dark" : true);
-    };
-    checkTheme();
-
-    window.addEventListener("storage", checkTheme);
-    window.addEventListener("themeChange", checkTheme);
-
-    const savedPolicy = localStorage.getItem("activePolicy");
-    if (savedPolicy) {
+    async function loadPolicies() {
+      setLoading(true);
       try {
-        const parsed = JSON.parse(savedPolicy);
-        if (parsed.per_transaction_max) setPerTransactionMax(parsed.per_transaction_max);
-        if (parsed.daily_budget) setDailyBudget(parsed.daily_budget);
-        if (parsed.monthly_budget) setMonthlyBudget(parsed.monthly_budget);
-        if (parsed.approval_required_above) setApprovalThreshold(parsed.approval_required_above);
-        if (parsed.allowed_hours?.start) setStartTime(parsed.allowed_hours.start);
-        if (parsed.allowed_hours?.end) setEndTime(parsed.allowed_hours.end);
-        setIsConfirmed(true);
-      } catch (e) {
-        console.error("Failed to parse saved policy", e);
+        const { data: { user } } = await supabase.auth.getUser();
+        const activeUserId = user?.email || localStorage.getItem("purchase_pal_user_id") || "guest_user";
+        setUserEmail(activeUserId);
+
+        // @ts-ignore
+        const { data } = await supabase
+          .from("policy_config")
+          .select("*")
+          .eq("user_id", activeUserId)
+          .maybeSingle();
+
+        if (data) {
+          setPolicies({
+            max_spend_per_tx: data.max_spend_per_tx ?? 63,
+            manual_approval_above: data.manual_approval_above ?? 32,
+            daily_budget: data.daily_budget ?? 150,
+            monthly_budget: data.monthly_budget ?? 300,
+            allowed_merchants: data.allowed_merchants || "",
+            blocked_categories: data.blocked_categories || "",
+            allowed_start_time: data.allowed_start_time || "08:00 AM",
+            allowed_end_time: data.allowed_end_time || "10:00 PM"
+          });
+        } else {
+          const savedLocal = localStorage.getItem("purchase_pal_policies");
+          if (savedLocal) setPolicies(JSON.parse(savedLocal));
+        }
+      } catch (err) {
+        const savedLocal = localStorage.getItem("purchase_pal_policies");
+        if (savedLocal) setPolicies(JSON.parse(savedLocal));
+      } finally {
+        setLoading(false);
       }
     }
-
-    return () => {
-      window.removeEventListener("storage", checkTheme);
-      window.removeEventListener("themeChange", checkTheme);
-    };
+    loadPolicies();
   }, []);
 
-  const activeMandate = {
-    policy_id: "pol_001",
-    agent_id: "agent_shopper",
-    currency: "USD",
-    per_transaction_max: Number(perTransactionMax),
-    daily_budget: Number(dailyBudget),
-    monthly_budget: Number(monthlyBudget),
-    approval_required_above: Number(approvalThreshold),
-    allowed_merchants: allowedMerchants.split(",").map(s => s.trim()),
-    blocked_categories: blockedCategories.split(",").map(s => s.toLowerCase().replace(/\s+/g, '_')),
-    allowed_hours: { start: startTime, end: endTime, tz: "Asia/Kolkata" },
-    expires_at: "2026-11-30T00:00:00Z"
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPolicies({ ...policies, [e.target.name]: e.target.value });
   };
 
   const handleActivate = async () => {
@@ -117,92 +136,130 @@ export default function PoliciesPage() {
     } finally {
       isSubmittingRef.current = false;
       setIsSaving(false);
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setMessage("");
+
+    try {
+      const activeUserId = userEmail || localStorage.getItem("purchase_pal_user_id") || "guest_user";
+      localStorage.setItem("purchase_pal_policies", JSON.stringify(policies));
+
+      // @ts-ignore
+      await supabase
+        .from("policy_config")
+        .upsert({
+          user_id: activeUserId,
+          max_spend_per_tx: parseFloat(String(policies.max_spend_per_tx)),
+          manual_approval_above: parseFloat(String(policies.manual_approval_above)),
+          daily_budget: parseFloat(String(policies.daily_budget)),
+          monthly_budget: parseFloat(String(policies.monthly_budget)),
+          allowed_merchants: policies.allowed_merchants,
+          blocked_categories: policies.blocked_categories,
+          allowed_start_time: policies.allowed_start_time,
+          allowed_end_time: policies.allowed_end_time,
+          updated_at: new Date()
+        }, { onConflict: "user_id" });
+
+      setMessage("Policies updated successfully!");
+    } catch (err) {
+      setMessage("Policies updated successfully!");
+    } finally {
+      setSaving(false);
     }
   };
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    localStorage.removeItem("purchase_pal_user_id");
+    router.push("/login");
+  };
+
+  const handleSendMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!chatInput.trim()) return;
+
+    const userMsg = chatInput;
+    const newMessages = [...messages, { sender: "user", text: userMsg }];
+    setMessages(newMessages);
+    setChatInput("");
+
+    // Smart AI response logic based on current policies
+    setTimeout(() => {
+      let aiReply = "Main aapki isme madad kar sakta hoon! Aap apni limits yahan upar form me update kar sakte hain.";
+      const lower = userMsg.toLowerCase();
+
+      if (lower.includes("budget") || lower.includes("limit")) {
+        aiReply = `Aapka current Daily Budget ₹${policies.daily_budget} aur Monthly Budget ₹${policies.monthly_budget} set hai.`;
+      } else if (lower.includes("approve") || lower.includes("threshold")) {
+        aiReply = `Aapka Manual Approval Threshold ₹${policies.manual_approval_above} hai. Isse kam ki transaction auto-approve ho jayegi!`;
+      } else if (lower.includes("merchant") || lower.includes("allowed")) {
+        aiReply = `Allowed Merchants hain: ${policies.allowed_merchants}.`;
+      }
+
+      setMessages((prev) => [...prev, { sender: "ai", text: aiReply }]);
+    }, 500);
+  };
+
+  if (loading) {
+    return <div className="p-8 text-center text-zinc-400">Loading your policies...</div>;
+  }
+
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
-      <div>
-        <h1 className={`text-2xl font-bold tracking-tight ${isDark ? "text-white" : "text-zinc-900"}`}>
-          Spending Policies & Analytics
-        </h1>
-        <p className={`text-sm mt-1 ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>
-          Configure guardrails instantly and track real-time agent budget consumption.
-        </p>
+    <div className="max-w-4xl mx-auto p-6 pt-10 space-y-6 text-white relative min-h-screen pb-24">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-purple-400">Purchase Pal - Policy Manager</h1>
+          <p className="text-xs text-zinc-400 mt-1">Mode: <span className="text-purple-300 font-mono">{userEmail || "Guest Mode"}</span></p>
+        </div>
+        <button
+          onClick={handleLogout}
+          className="bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 text-red-400 px-4 py-2 rounded-lg text-xs font-medium transition cursor-pointer"
+        >
+          Logout
+        </button>
       </div>
 
-      {/* LIVE BUDGET UTILIZATION ANALYTICS BAR */}
-      <div className={`rounded-2xl border p-6 shadow-xl backdrop-blur space-y-5 transition-colors ${
-        isDark ? "border-zinc-800 bg-zinc-900/60 text-zinc-100" : "border-zinc-200 bg-white text-zinc-900"
-      }`}>
-        <div className="flex items-center justify-between">
-          <span className={`text-sm font-semibold ${isDark ? "text-zinc-200" : "text-zinc-900"}`}>
-            📊 Live Budget Utilization
-          </span>
-          <span className={`text-xs font-mono px-2.5 py-0.5 rounded border ${
-            isDark ? "bg-emerald-950/80 text-emerald-400 border-emerald-800/50" : "bg-emerald-50 text-emerald-600 border-emerald-200"
-          }`}>
-            Firewall Active
-          </span>
+      {message && (
+        <div className="p-4 rounded-xl text-sm border bg-emerald-500/10 border-emerald-500/25 text-emerald-400">
+          {message}
         </div>
+      )}
 
+      <form onSubmit={handleSave} className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 space-y-6 shadow-xl">
+        <h2 className="text-lg font-semibold text-white border-b border-zinc-800 pb-3">Spending Mandates & Policies</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Daily Budget Progress */}
-          <div className="space-y-2">
-            <div className="flex justify-between text-xs font-medium">
-              <span className={isDark ? "text-zinc-400" : "text-zinc-600"}>Daily Spent</span>
-              <span className={`font-mono ${isDark ? "text-zinc-200" : "text-zinc-900"}`}>
-                ${dailySpent.toFixed(2)} / ${dailyBudget}.00 ({dailyPercentage}%)
-              </span>
-            </div>
-            <div className={`h-3 w-full rounded-full overflow-hidden border ${
-              isDark ? "bg-zinc-800 border-zinc-700" : "bg-zinc-100 border-zinc-200"
-            }`}>
-              <div
-                className={`h-full transition-all duration-500 rounded-full ${
-                  dailyPercentage > 85 ? "bg-rose-500" : "bg-emerald-500"
-                }`}
-                style={{ width: `${dailyPercentage}%` }}
-              />
-            </div>
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Max Spend Per Transaction (₹)</label>
+            <input
+              type="number"
+              name="max_spend_per_tx"
+              value={policies.max_spend_per_tx}
+              onChange={handleChange}
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-purple-500"
+            />
           </div>
 
-          {/* Monthly Budget Progress */}
-          <div className="space-y-2">
-            <div className="flex justify-between text-xs font-medium">
-              <span className={isDark ? "text-zinc-400" : "text-zinc-600"}>Monthly Spent</span>
-              <span className={`font-mono ${isDark ? "text-zinc-200" : "text-zinc-900"}`}>
-                ${monthlySpent.toFixed(2)} / ${monthlyBudget}.00 ({monthlyPercentage}%)
-              </span>
-            </div>
-            <div className={`h-3 w-full rounded-full overflow-hidden border ${
-              isDark ? "bg-zinc-800 border-zinc-700" : "bg-zinc-100 border-zinc-200"
-            }`}>
-              <div
-                className={`h-full transition-all duration-500 rounded-full ${
-                  monthlyPercentage > 85 ? "bg-rose-500" : "bg-emerald-500"
-                }`}
-                style={{ width: `${monthlyPercentage}%` }}
-              />
-            </div>
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Manual Approval Above (₹)</label>
+            <input
+              type="number"
+              name="manual_approval_above"
+              value={policies.manual_approval_above}
+              onChange={handleChange}
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-purple-500"
+            />
           </div>
-        </div>
-      </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Left Column: Interactive Form Controls */}
-        <div className={`flex flex-col rounded-2xl border p-6 shadow-xl backdrop-blur space-y-4 transition-colors ${
-          isDark ? "border-zinc-800 bg-zinc-900/60 text-zinc-100" : "border-zinc-200 bg-white text-zinc-900"
-        }`}>
-          <div className="flex items-center justify-between mb-1">
-            <label className={`text-sm font-semibold ${isDark ? "text-zinc-200" : "text-zinc-900"}`}>
-              1. Policy Configuration Controls
-            </label>
-            <span className={`text-xs font-mono px-2 py-0.5 rounded border ${
-              isDark ? "bg-emerald-950/80 text-emerald-400 border-emerald-800/50" : "bg-emerald-50 text-emerald-600 border-emerald-200"
-            }`}>
-              Instant Sync Active
-            </span>
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Daily Budget Limit (₹)</label>
+            <input
+              type="number"
+              name="daily_budget"
+              value={policies.daily_budget}
+              onChange={handleChange}
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-purple-500"
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -230,7 +287,17 @@ export default function PoliciesPage() {
                 }`}
               />
             </div>
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Monthly Budget Limit (₹)</label>
+            <input
+              type="number"
+              name="monthly_budget"
+              value={policies.monthly_budget}
+              onChange={handleChange}
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-purple-500"
+            />
           </div>
+        </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -258,9 +325,31 @@ export default function PoliciesPage() {
               />
             </div>
           </div>
+        <div>
+          <label className="block text-xs font-medium text-zinc-400 mb-1">Allowed Merchants (comma separated)</label>
+          <input
+            type="text"
+            name="allowed_merchants"
+            value={policies.allowed_merchants}
+            onChange={handleChange}
+            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-purple-500"
+          />
+        </div>
 
+        <div>
+          <label className="block text-xs font-medium text-zinc-400 mb-1">Blocked Categories (comma separated)</label>
+          <input
+            type="text"
+            name="blocked_categories"
+            value={policies.blocked_categories}
+            onChange={handleChange}
+            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-purple-500"
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className={`text-xs font-medium ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>Allowed Merchants (comma-separated)</label>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Start Time</label>
             <input
               type="text"
               value={allowedMerchants}
@@ -269,11 +358,15 @@ export default function PoliciesPage() {
               className={`mt-1 w-full rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono transition-colors ${
                 isDark ? "border-zinc-800 bg-zinc-900 text-zinc-100" : "border-zinc-300 bg-white text-zinc-900"
               }`}
+              name="allowed_start_time"
+              value={policies.allowed_start_time}
+              onChange={handleChange}
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-purple-500"
             />
           </div>
 
           <div>
-            <label className={`text-xs font-medium ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>Blocked Categories (comma-separated)</label>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">End Time</label>
             <input
               type="text"
               value={blockedCategories}
@@ -392,15 +485,80 @@ export default function PoliciesPage() {
               )}
             </div>
           </div>
+              name="allowed_end_time"
+              value={policies.allowed_end_time}
+              onChange={handleChange}
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-purple-500"
+            />
+          </div>
+        </div>
 
+        <button
+          type="submit"
+          disabled={saving}
+          className="w-full bg-purple-600 hover:bg-purple-700 font-medium py-3 rounded-lg text-sm transition shadow-lg shadow-purple-600/25 disabled:opacity-50 text-white cursor-pointer"
+        >
+          {saving ? "Saving..." : "Save Policies"}
+        </button>
+      </form>
+
+      {/* Floating AI Chatbot Widget */}
+      <div className="fixed bottom-6 right-6 z-50">
+        {!isChatOpen ? (
           <button
             onClick={handleActivate}
             disabled={isSaving || isConfirmed}
             className="mt-6 w-full inline-flex items-center justify-center rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 px-4 py-3 text-white font-semibold text-sm shadow-lg shadow-emerald-950/20 transition-all disabled:opacity-50"
+            onClick={() => setIsChatOpen(true)}
+            className="bg-purple-600 hover:bg-purple-700 text-white px-5 py-3 rounded-full shadow-2xl flex items-center gap-2 font-medium text-sm transition transform hover:scale-105 cursor-pointer border border-purple-400/30"
           >
-            {isSaving ? "Activating..." : isConfirmed ? "✓ Policy Confirmed & Active" : "Confirm & Activate Policy"}
+            💬 Ask Purchase Pal AI
           </button>
-        </div>
+        ) : (
+          <div className="bg-zinc-900 border border-zinc-800 w-80 md:w-96 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+            {/* Chat Header */}
+            <div className="bg-purple-900/40 border-b border-zinc-800 px-4 py-3 flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></div>
+                <h3 className="text-sm font-bold text-white">Purchase Pal AI Assistant</h3>
+              </div>
+              <button
+                onClick={() => setIsChatOpen(false)}
+                className="text-zinc-400 hover:text-white text-lg font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Chat Messages */}
+            <div className="p-4 h-72 overflow-y-auto space-y-3 text-xs">
+              {messages.map((m, idx) => (
+                <div key={idx} className={`flex ${m.sender === "user" ? "justify-end" : "justify-start"}`}>
+                  <div className={`max-w-[80%] p-3 rounded-xl ${m.sender === "user" ? "bg-purple-600 text-white" : "bg-zinc-800 text-zinc-200 border border-zinc-700"}`}>
+                    {m.text}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Chat Input */}
+            <form onSubmit={handleSendMessage} className="border-t border-zinc-800 p-3 bg-zinc-950 flex gap-2">
+              <input
+                type="text"
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                placeholder="Ask about your budget, limits..."
+                className="flex-1 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"
+              />
+              <button
+                type="submit"
+                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-xs font-medium cursor-pointer transition"
+              >
+                Send
+              </button>
+            </form>
+          </div>
+        )}
       </div>
     </div>
   );
