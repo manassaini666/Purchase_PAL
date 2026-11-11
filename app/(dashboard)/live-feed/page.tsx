@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { StatusBadge } from "@/components/StatusBadge";
 
 interface Transaction {
   id: string;
@@ -117,14 +118,6 @@ export default function LiveFeedPage() {
           {filteredTransactions.map((tx) => (
             <div key={tx.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-zinc-800/20 transition-colors">
               <div className="flex items-start gap-4">
-                <div className={`mt-1 h-10 w-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 border ${
-                  tx.status === "ALLOW"
-                    ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                    : "bg-rose-500/10 text-rose-500 border-rose-500/20"
-                }`}>
-                  {tx.status === "ALLOW" ? "✓" : "✕"}
-                </div>
-
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <span className={`font-semibold text-sm ${isDark ? "text-white" : "text-zinc-900"}`}>
@@ -149,13 +142,7 @@ export default function LiveFeedPage() {
                 <span className={`text-base font-mono font-bold ${isDark ? "text-white" : "text-zinc-900"}`}>
                   ${tx.amount.toFixed(2)}
                 </span>
-                <span className={`text-xs font-mono font-semibold px-2.5 py-0.5 rounded mt-1 border ${
-                  tx.status === "ALLOW"
-                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                    : "bg-rose-500/10 text-rose-400 border-rose-500/20"
-                }`}>
-                  {tx.status}
-                </span>
+                <StatusBadge status={tx.status} />
               </div>
             </div>
           ))}

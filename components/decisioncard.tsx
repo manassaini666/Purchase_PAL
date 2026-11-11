@@ -2,21 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { DecisionRecord } from "@/lib/mock";
-
-const badgeStyles: Record<DecisionRecord["decision"], string> = {
-  ALLOW:
-    "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-400 dark:border-emerald-800",
-  BLOCK:
-    "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/50 dark:text-rose-400 dark:border-rose-800",
-  NEEDS_APPROVAL:
-    "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-800",
-};
-
-const badgeLabels: Record<DecisionRecord["decision"], string> = {
-  ALLOW: "ALLOW",
-  BLOCK: "BLOCK",
-  NEEDS_APPROVAL: "APPROVAL",
-};
+import { StatusBadge } from "@/components/StatusBadge";
 
 // Helper to clean up underscores in display explanations safely
 function formatExplanation(text: string) {
@@ -39,13 +25,7 @@ export function DecisionCard({ decision }: { decision: DecisionRecord }) {
     <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm transition hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2.5">
-          <span
-            className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-bold tracking-wide ${
-              badgeStyles[decision.decision]
-            }`}
-          >
-            {badgeLabels[decision.decision]}
-          </span>
+          <StatusBadge status={decision.decision} />
           <span className="font-semibold text-zinc-900 dark:text-zinc-100">
             ${decision.request?.amount?.toFixed(2) ?? "0.00"} {decision.request?.currency ?? "USD"}
           </span>

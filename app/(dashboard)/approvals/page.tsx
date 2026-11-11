@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { StatusBadge } from "@/components/StatusBadge";
 
 export default function ApprovalsPage() {
   const [isDark, setIsDark] = useState(true);
@@ -9,6 +10,7 @@ export default function ApprovalsPage() {
   // Mock test purchase amount
   const purchaseAmount = 28.50;
   const requiresApproval = purchaseAmount > threshold;
+  const decisionStatus = requiresApproval ? "NEEDS_APPROVAL" : "ALLOW";
 
   useEffect(() => {
     const checkTheme = () => {
@@ -53,6 +55,9 @@ export default function ApprovalsPage() {
       <div className={`flex flex-col items-center justify-center rounded-2xl border p-12 shadow-xl backdrop-blur transition-colors text-center ${
         isDark ? "border-zinc-800 bg-zinc-900/60 text-zinc-100" : "border-zinc-200 bg-white text-zinc-900"
       }`}>
+        <div className="mb-4">
+          <StatusBadge status={decisionStatus} />
+        </div>
         {requiresApproval ? (
           <>
             <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-4 text-lg font-bold ${
