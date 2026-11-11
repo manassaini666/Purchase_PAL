@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { EmptyState, ErrorState, LoadingState } from "@/components/state";
 
 export default function PoliciesPage() {
   const [isDark, setIsDark] = useState(true);
@@ -15,6 +16,18 @@ export default function PoliciesPage() {
 
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const isSubmittingRef = useRef(false);
+
+  const normalizedAllowedMerchants = allowedMerchants
+    .split(",")
+    .map((merchant) => merchant.trim())
+    .filter(Boolean);
+
+  const normalizedBlockedCategories = blockedCategories
+    .split(",")
+    .map((category) => category.trim())
+    .filter(Boolean);
 
   // Live budget utilization stats
   const dailySpent = 63.50;
@@ -70,7 +83,12 @@ export default function PoliciesPage() {
   };
 
   const handleActivate = async () => {
+    if (isSubmittingRef.current) return;
+
+    isSubmittingRef.current = true;
     setIsSaving(true);
+    setSaveError(null);
+
     try {
       const res = await fetch("/api/policies", {
         method: "POST",
@@ -88,12 +106,16 @@ export default function PoliciesPage() {
       if (res.ok && data.success) {
         setIsConfirmed(true);
         localStorage.setItem("activePolicy", JSON.stringify(activeMandate));
-      } else {
-        alert("Failed to save policy");
+        return;
       }
+
+      const message = data?.error || data?.message || "Failed to save policy. Please try again.";
+      setSaveError(message);
     } catch (err) {
       console.error("Error saving policy:", err);
+      setSaveError("Failed to save policy. Please try again.");
     } finally {
+      isSubmittingRef.current = false;
       setIsSaving(false);
     }
   };
@@ -190,7 +212,7 @@ export default function PoliciesPage() {
                 type="number"
                 value={perTransactionMax}
                 style={{ colorScheme: isDark ? "dark" : "light" }}
-                onChange={(e) => { setPerTransactionMax(Number(e.target.value)); setIsConfirmed(false); }}
+                onChange={(e) => { setPerTransactionMax(Number(e.target.value)); setIsConfirmed(false); setSaveError(null); }}
                 className={`mt-1 w-full rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono transition-colors ${
                   isDark ? "border-zinc-800 bg-zinc-900 text-zinc-100" : "border-zinc-300 bg-white text-zinc-900"
                 }`}
@@ -202,7 +224,7 @@ export default function PoliciesPage() {
                 type="number"
                 value={approvalThreshold}
                 style={{ colorScheme: isDark ? "dark" : "light" }}
-                onChange={(e) => { setApprovalThreshold(Number(e.target.value)); setIsConfirmed(false); }}
+                onChange={(e) => { setApprovalThreshold(Number(e.target.value)); setIsConfirmed(false); setSaveError(null); }}
                 className={`mt-1 w-full rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono transition-colors ${
                   isDark ? "border-zinc-800 bg-zinc-900 text-zinc-100" : "border-zinc-300 bg-white text-zinc-900"
                 }`}
@@ -217,7 +239,7 @@ export default function PoliciesPage() {
                 type="number"
                 value={dailyBudget}
                 style={{ colorScheme: isDark ? "dark" : "light" }}
-                onChange={(e) => { setDailyBudget(Number(e.target.value)); setIsConfirmed(false); }}
+                onChange={(e) => { setDailyBudget(Number(e.target.value)); setIsConfirmed(false); setSaveError(null); }}
                 className={`mt-1 w-full rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono transition-colors ${
                   isDark ? "border-zinc-800 bg-zinc-900 text-zinc-100" : "border-zinc-300 bg-white text-zinc-900"
                 }`}
@@ -229,7 +251,7 @@ export default function PoliciesPage() {
                 type="number"
                 value={monthlyBudget}
                 style={{ colorScheme: isDark ? "dark" : "light" }}
-                onChange={(e) => { setMonthlyBudget(Number(e.target.value)); setIsConfirmed(false); }}
+                onChange={(e) => { setMonthlyBudget(Number(e.target.value)); setIsConfirmed(false); setSaveError(null); }}
                 className={`mt-1 w-full rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono transition-colors ${
                   isDark ? "border-zinc-800 bg-zinc-900 text-zinc-100" : "border-zinc-300 bg-white text-zinc-900"
                 }`}
@@ -243,7 +265,7 @@ export default function PoliciesPage() {
               type="text"
               value={allowedMerchants}
               style={{ colorScheme: isDark ? "dark" : "light" }}
-              onChange={(e) => { setAllowedMerchants(e.target.value); setIsConfirmed(false); }}
+              onChange={(e) => { setAllowedMerchants(e.target.value); setIsConfirmed(false); setSaveError(null); }}
               className={`mt-1 w-full rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono transition-colors ${
                 isDark ? "border-zinc-800 bg-zinc-900 text-zinc-100" : "border-zinc-300 bg-white text-zinc-900"
               }`}
@@ -256,7 +278,7 @@ export default function PoliciesPage() {
               type="text"
               value={blockedCategories}
               style={{ colorScheme: isDark ? "dark" : "light" }}
-              onChange={(e) => { setBlockedCategories(e.target.value); setIsConfirmed(false); }}
+              onChange={(e) => { setBlockedCategories(e.target.value); setIsConfirmed(false); setSaveError(null); }}
               className={`mt-1 w-full rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono transition-colors ${
                 isDark ? "border-zinc-800 bg-zinc-900 text-zinc-100" : "border-zinc-300 bg-white text-zinc-900"
               }`}
@@ -270,7 +292,7 @@ export default function PoliciesPage() {
                 type="text"
                 value={startTime}
                 style={{ colorScheme: isDark ? "dark" : "light" }}
-                onChange={(e) => { setStartTime(e.target.value); setIsConfirmed(false); }}
+                onChange={(e) => { setStartTime(e.target.value); setIsConfirmed(false); setSaveError(null); }}
                 className={`mt-1 w-full rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono transition-colors ${
                   isDark ? "border-zinc-800 bg-zinc-900 text-zinc-100" : "border-zinc-300 bg-white text-zinc-900"
                 }`}
@@ -282,7 +304,7 @@ export default function PoliciesPage() {
                 type="text"
                 value={endTime}
                 style={{ colorScheme: isDark ? "dark" : "light" }}
-                onChange={(e) => { setEndTime(e.target.value); setIsConfirmed(false); }}
+                onChange={(e) => { setEndTime(e.target.value); setIsConfirmed(false); setSaveError(null); }}
                 className={`mt-1 w-full rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono transition-colors ${
                   isDark ? "border-zinc-800 bg-zinc-900 text-zinc-100" : "border-zinc-300 bg-white text-zinc-900"
                 }`}
@@ -309,39 +331,71 @@ export default function PoliciesPage() {
               isDark ? "border-zinc-800 bg-zinc-950/80 text-zinc-300" : "border-zinc-200 bg-zinc-50 text-zinc-700"
             }`}>
               <p className={`text-xs font-semibold uppercase tracking-wider ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>Summary of active rules:</p>
-              
-              <ul className="space-y-2.5 text-xs sm:text-sm">
-                <li className="flex items-start gap-2">
-                  <span className="text-emerald-500 font-bold">•</span>
-                  <span><strong className={isDark ? "text-white" : "text-zinc-900"}>Max Spend:</strong> ${perTransactionMax}.00 per transaction</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-emerald-500 font-bold">•</span>
-                  <span><strong className={isDark ? "text-white" : "text-zinc-900"}>Budgets:</strong> ${dailyBudget}.00 daily / ${monthlyBudget}.00 monthly</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-emerald-500 font-bold">•</span>
-                  <span><strong className={isDark ? "text-white" : "text-zinc-900"}>Manual Approvals:</strong> Required for amounts over ${approvalThreshold}.00</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-emerald-500 font-bold">•</span>
-                  <span><strong className={isDark ? "text-white" : "text-zinc-900"}>Allowed Places:</strong> {allowedMerchants}</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-emerald-500 font-bold">•</span>
-                  <span><strong className={isDark ? "text-white" : "text-zinc-900"}>Blocked Categories:</strong> {blockedCategories}</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-emerald-500 font-bold">•</span>
-                  <span><strong className={isDark ? "text-white" : "text-zinc-900"}>Time Window:</strong> {startTime} to {endTime} IST</span>
-                </li>
-              </ul>
+
+              {isSaving ? (
+                <LoadingState title="Saving policy" message="Updating your spend controls and policy metadata." />
+              ) : saveError ? (
+                <ErrorState title="Policy save failed" message={saveError} onAction={handleActivate} />
+              ) : null}
+
+              {!isSaving && (
+                <ul className="space-y-2.5 text-xs sm:text-sm">
+                  <li className="flex items-start gap-2">
+                    <span className="text-emerald-500 font-bold">•</span>
+                    <span><strong className={isDark ? "text-white" : "text-zinc-900"}>Max Spend:</strong> ${perTransactionMax}.00 per transaction</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-emerald-500 font-bold">•</span>
+                    <span><strong className={isDark ? "text-white" : "text-zinc-900"}>Budgets:</strong> ${dailyBudget}.00 daily / ${monthlyBudget}.00 monthly</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-emerald-500 font-bold">•</span>
+                    <span><strong className={isDark ? "text-white" : "text-zinc-900"}>Manual Approvals:</strong> Required for amounts over ${approvalThreshold}.00</span>
+                  </li>
+                  {normalizedAllowedMerchants.length > 0 ? (
+                    <li className="flex items-start gap-2">
+                      <span className="text-emerald-500 font-bold">•</span>
+                      <span><strong className={isDark ? "text-white" : "text-zinc-900"}>Allowed Places:</strong> {allowedMerchants}</span>
+                    </li>
+                  ) : (
+                    <li className="flex items-start gap-2">
+                      <span className="text-emerald-500 font-bold">•</span>
+                      <span>
+                        <strong className={isDark ? "text-white" : "text-zinc-900"}>Allowed Places:</strong>
+                        <span className="ml-2 inline-block">
+                          <EmptyState title="No merchants configured" message="Add at least one merchant to this policy." />
+                        </span>
+                      </span>
+                    </li>
+                  )}
+                  {normalizedBlockedCategories.length > 0 ? (
+                    <li className="flex items-start gap-2">
+                      <span className="text-emerald-500 font-bold">•</span>
+                      <span><strong className={isDark ? "text-white" : "text-zinc-900"}>Blocked Categories:</strong> {blockedCategories}</span>
+                    </li>
+                  ) : (
+                    <li className="flex items-start gap-2">
+                      <span className="text-emerald-500 font-bold">•</span>
+                      <span>
+                        <strong className={isDark ? "text-white" : "text-zinc-900"}>Blocked Categories:</strong>
+                        <span className="ml-2 inline-block">
+                          <EmptyState title="No blocked categories" message="No categories are currently blocked." />
+                        </span>
+                      </span>
+                    </li>
+                  )}
+                  <li className="flex items-start gap-2">
+                    <span className="text-emerald-500 font-bold">•</span>
+                    <span><strong className={isDark ? "text-white" : "text-zinc-900"}>Time Window:</strong> {startTime} to {endTime} IST</span>
+                  </li>
+                </ul>
+              )}
             </div>
           </div>
 
           <button
             onClick={handleActivate}
-            disabled={isSaving}
+            disabled={isSaving || isConfirmed}
             className="mt-6 w-full inline-flex items-center justify-center rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 px-4 py-3 text-white font-semibold text-sm shadow-lg shadow-emerald-950/20 transition-all disabled:opacity-50"
           >
             {isSaving ? "Activating..." : isConfirmed ? "✓ Policy Confirmed & Active" : "Confirm & Activate Policy"}
