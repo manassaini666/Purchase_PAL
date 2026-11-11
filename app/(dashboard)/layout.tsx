@@ -60,16 +60,16 @@ export default function DashboardLayout({
       <header className={`sticky top-0 z-50 border-b backdrop-blur-md transition-colors ${
         isDark ? "border-zinc-800 bg-zinc-950/80" : "border-zinc-200 bg-white/80"
       }`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto flex min-h-16 flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-2 sm:px-6 lg:px-8">
           
           {/* Logo & Nav Links */}
-          <div className="flex items-center gap-8">
-            <div className="flex items-center gap-2 font-bold tracking-tight">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2 sm:gap-x-5 lg:gap-x-8">
+            <div className="flex shrink-0 items-center gap-2 font-bold tracking-tight">
               <span className="h-3 w-3 rounded-full bg-emerald-500 animate-pulse"></span>
               <span className="text-lg">Purchase Pal</span>
             </div>
 
-            <nav className="hidden md:flex items-center gap-1">
+               <nav className="order-last flex w-full flex-wrap items-center gap-1 md:order-none md:w-auto">
               {navItems.map((item) => {
                 const isActive = pathname === item.href;
                 return (
@@ -91,15 +91,25 @@ export default function DashboardLayout({
                 );
               })}
             </nav>
+
+            <span className={`inline-flex min-w-0 max-w-full shrink items-center whitespace-nowrap rounded-full border px-2 py-1 text-[10px] font-semibold leading-tight sm:px-2.5 sm:text-xs ${
+              isDark
+                ? "border-amber-800/70 bg-amber-950/60 text-amber-300"
+                : "border-amber-300 bg-amber-50 text-amber-800"
+            }`}>
+              Sandbox · no real money
+            </span>
           </div>
 
           {/* Right Action Bar: Telegram Badge, Theme Toggle & Sandbox Badge */}
-          <div className="flex items-center gap-3">
-            <TelegramStatusBadge />
+          <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
+            <div className="hidden lg:block">
+              <TelegramStatusBadge />
+            </div>
 
             <button
               onClick={toggleTheme}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors ${
+              className={`inline-flex items-center gap-1.5 px-2 py-1.5 text-[10px] sm:px-3 sm:text-xs rounded-xl font-medium border transition-colors ${
                 isDark 
                   ? "border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800" 
                   : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-100"

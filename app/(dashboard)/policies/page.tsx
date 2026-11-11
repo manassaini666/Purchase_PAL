@@ -1,9 +1,10 @@
 "use client";
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 
-export default function PolicyManager() {
+export default function PoliciesPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -36,7 +37,6 @@ export default function PolicyManager() {
         const activeUserId = user?.email || localStorage.getItem("purchase_pal_user_id") || "guest_user";
         setUserEmail(activeUserId);
 
-        // @ts-ignore
         const { data } = await supabase
           .from("policy_config")
           .select("*")
@@ -58,7 +58,7 @@ export default function PolicyManager() {
           const savedLocal = localStorage.getItem("purchase_pal_policies");
           if (savedLocal) setPolicies(JSON.parse(savedLocal));
         }
-      } catch (err) {
+      } catch {
         const savedLocal = localStorage.getItem("purchase_pal_policies");
         if (savedLocal) setPolicies(JSON.parse(savedLocal));
       } finally {
@@ -81,7 +81,6 @@ export default function PolicyManager() {
       const activeUserId = userEmail || localStorage.getItem("purchase_pal_user_id") || "guest_user";
       localStorage.setItem("purchase_pal_policies", JSON.stringify(policies));
 
-      // @ts-ignore
       await supabase
         .from("policy_config")
         .upsert({
@@ -98,7 +97,7 @@ export default function PolicyManager() {
         }, { onConflict: "user_id" });
 
       setMessage("Policies updated successfully!");
-    } catch (err) {
+    } catch {
       setMessage("Policies updated successfully!");
     } finally {
       setSaving(false);
@@ -163,7 +162,7 @@ export default function PolicyManager() {
       )}
 
       <form onSubmit={handleSave} className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 space-y-6 shadow-xl">
-        <h2 className="text-lg font-semibold text-white border-b border-zinc-800 pb-3">Spending Mandates & Policies</h2>
+        <h2 className="text-lg font-semibold text-white border-b border-zinc-800 pb-3">Spending Mandates &amp; Policies</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label className="block text-xs font-medium text-zinc-400 mb-1">Max Spend Per Transaction (₹)</label>
@@ -208,31 +207,29 @@ export default function PolicyManager() {
               className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-purple-500"
             />
           </div>
-        </div>
 
-        <div>
-          <label className="block text-xs font-medium text-zinc-400 mb-1">Allowed Merchants (comma separated)</label>
-          <input
-            type="text"
-            name="allowed_merchants"
-            value={policies.allowed_merchants}
-            onChange={handleChange}
-            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-purple-500"
-          />
-        </div>
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Allowed Merchants (comma separated)</label>
+            <input
+              type="text"
+              name="allowed_merchants"
+              value={policies.allowed_merchants}
+              onChange={handleChange}
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-purple-500"
+            />
+          </div>
 
-        <div>
-          <label className="block text-xs font-medium text-zinc-400 mb-1">Blocked Categories (comma separated)</label>
-          <input
-            type="text"
-            name="blocked_categories"
-            value={policies.blocked_categories}
-            onChange={handleChange}
-            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-purple-500"
-          />
-        </div>
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Blocked Categories (comma separated)</label>
+            <input
+              type="text"
+              name="blocked_categories"
+              value={policies.blocked_categories}
+              onChange={handleChange}
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-purple-500"
+            />
+          </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label className="block text-xs font-medium text-zinc-400 mb-1">Start Time</label>
             <input
