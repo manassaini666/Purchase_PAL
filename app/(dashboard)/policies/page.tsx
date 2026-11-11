@@ -1,38 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { EmptyState, ErrorState, LoadingState } from "@/components/state";
-
-export default function PoliciesPage() {
-  const [isDark, setIsDark] = useState(true);
-  const [perTransactionMax, setPerTransactionMax] = useState<number>(63);
-  const [dailyBudget, setDailyBudget] = useState<number>(150);
-  const [monthlyBudget, setMonthlyBudget] = useState<number>(300);
-  const [approvalThreshold, setApprovalThreshold] = useState<number>(30);
-  const [allowedMerchants, setAllowedMerchants] = useState<string>("Merchant A, Merchant B");
-  const [blockedCategories, setBlockedCategories] = useState<string>("Gift Cards, Crypto");
-  const [startTime, setStartTime] = useState<string>("08:00");
-  const [endTime, setEndTime] = useState<string>("22:00");
-
-  const [isConfirmed, setIsConfirmed] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const isSubmittingRef = useRef(false);
-
-  const normalizedAllowedMerchants = allowedMerchants
-    .split(",")
-    .map((merchant) => merchant.trim())
-    .filter(Boolean);
-
-  const normalizedBlockedCategories = blockedCategories
-    .split(",")
-    .map((category) => category.trim())
-    .filter(Boolean);
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 
-export default function PolicyManager() {
+export default function PoliciesPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -65,7 +37,6 @@ export default function PolicyManager() {
         const activeUserId = user?.email || localStorage.getItem("purchase_pal_user_id") || "guest_user";
         setUserEmail(activeUserId);
 
-        // @ts-ignore
         const { data } = await supabase
           .from("policy_config")
           .select("*")
@@ -87,7 +58,7 @@ export default function PolicyManager() {
           const savedLocal = localStorage.getItem("purchase_pal_policies");
           if (savedLocal) setPolicies(JSON.parse(savedLocal));
         }
-      } catch (err) {
+      } catch {
         const savedLocal = localStorage.getItem("purchase_pal_policies");
         if (savedLocal) setPolicies(JSON.parse(savedLocal));
       } finally {
@@ -101,41 +72,6 @@ export default function PolicyManager() {
     setPolicies({ ...policies, [e.target.name]: e.target.value });
   };
 
-  const handleActivate = async () => {
-    if (isSubmittingRef.current) return;
-
-    isSubmittingRef.current = true;
-    setIsSaving(true);
-    setSaveError(null);
-
-    try {
-      const res = await fetch("/api/policies", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          policyId: activeMandate.policy_id,
-          agentId: activeMandate.agent_id,
-          rawPrompt: `Configured via interactive controls: Max $${perTransactionMax}, Approval above $${approvalThreshold}`,
-          mandateJson: activeMandate,
-          expiresAt: activeMandate.expires_at,
-        }),
-      });
-
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setIsConfirmed(true);
-        localStorage.setItem("activePolicy", JSON.stringify(activeMandate));
-        return;
-      }
-
-      const message = data?.error || data?.message || "Failed to save policy. Please try again.";
-      setSaveError(message);
-    } catch (err) {
-      console.error("Error saving policy:", err);
-      setSaveError("Failed to save policy. Please try again.");
-    } finally {
-      isSubmittingRef.current = false;
-      setIsSaving(false);
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -145,7 +81,6 @@ export default function PolicyManager() {
       const activeUserId = userEmail || localStorage.getItem("purchase_pal_user_id") || "guest_user";
       localStorage.setItem("purchase_pal_policies", JSON.stringify(policies));
 
-      // @ts-ignore
       await supabase
         .from("policy_config")
         .upsert({
@@ -162,7 +97,7 @@ export default function PolicyManager() {
         }, { onConflict: "user_id" });
 
       setMessage("Policies updated successfully!");
-    } catch (err) {
+    } catch {
       setMessage("Policies updated successfully!");
     } finally {
       setSaving(false);
@@ -227,7 +162,7 @@ export default function PolicyManager() {
       )}
 
       <form onSubmit={handleSave} className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 space-y-6 shadow-xl">
-        <h2 className="text-lg font-semibold text-white border-b border-zinc-800 pb-3">Spending Mandates & Policies</h2>
+        <h2 className="text-lg font-semibold text-white border-b border-zinc-800 pb-3">Spending Mandates &amp; Policies</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label className="block text-xs font-medium text-zinc-400 mb-1">Max Spend Per Transaction (₹)</label>
@@ -262,31 +197,6 @@ export default function PolicyManager() {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className={`text-xs font-medium ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>Max Spend / Tx ($)</label>
-              <input
-                type="number"
-                value={perTransactionMax}
-                style={{ colorScheme: isDark ? "dark" : "light" }}
-                onChange={(e) => { setPerTransactionMax(Number(e.target.value)); setIsConfirmed(false); setSaveError(null); }}
-                className={`mt-1 w-full rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono transition-colors ${
-                  isDark ? "border-zinc-800 bg-zinc-900 text-zinc-100" : "border-zinc-300 bg-white text-zinc-900"
-                }`}
-              />
-            </div>
-            <div>
-              <label className={`text-xs font-medium ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>Approval Above ($)</label>
-              <input
-                type="number"
-                value={approvalThreshold}
-                style={{ colorScheme: isDark ? "dark" : "light" }}
-                onChange={(e) => { setApprovalThreshold(Number(e.target.value)); setIsConfirmed(false); setSaveError(null); }}
-                className={`mt-1 w-full rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono transition-colors ${
-                  isDark ? "border-zinc-800 bg-zinc-900 text-zinc-100" : "border-zinc-300 bg-white text-zinc-900"
-                }`}
-              />
-            </div>
           <div>
             <label className="block text-xs font-medium text-zinc-400 mb-1">Monthly Budget Limit (₹)</label>
             <input
@@ -297,67 +207,33 @@ export default function PolicyManager() {
               className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-purple-500"
             />
           </div>
-        </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className={`text-xs font-medium ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>Daily Budget ($)</label>
-              <input
-                type="number"
-                value={dailyBudget}
-                style={{ colorScheme: isDark ? "dark" : "light" }}
-                onChange={(e) => { setDailyBudget(Number(e.target.value)); setIsConfirmed(false); setSaveError(null); }}
-                className={`mt-1 w-full rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono transition-colors ${
-                  isDark ? "border-zinc-800 bg-zinc-900 text-zinc-100" : "border-zinc-300 bg-white text-zinc-900"
-                }`}
-              />
-            </div>
-            <div>
-              <label className={`text-xs font-medium ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>Monthly Budget ($)</label>
-              <input
-                type="number"
-                value={monthlyBudget}
-                style={{ colorScheme: isDark ? "dark" : "light" }}
-                onChange={(e) => { setMonthlyBudget(Number(e.target.value)); setIsConfirmed(false); setSaveError(null); }}
-                className={`mt-1 w-full rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono transition-colors ${
-                  isDark ? "border-zinc-800 bg-zinc-900 text-zinc-100" : "border-zinc-300 bg-white text-zinc-900"
-                }`}
-              />
-            </div>
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Allowed Merchants (comma separated)</label>
+            <input
+              type="text"
+              name="allowed_merchants"
+              value={policies.allowed_merchants}
+              onChange={handleChange}
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-purple-500"
+            />
           </div>
-        <div>
-          <label className="block text-xs font-medium text-zinc-400 mb-1">Allowed Merchants (comma separated)</label>
-          <input
-            type="text"
-            name="allowed_merchants"
-            value={policies.allowed_merchants}
-            onChange={handleChange}
-            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-purple-500"
-          />
-        </div>
 
-        <div>
-          <label className="block text-xs font-medium text-zinc-400 mb-1">Blocked Categories (comma separated)</label>
-          <input
-            type="text"
-            name="blocked_categories"
-            value={policies.blocked_categories}
-            onChange={handleChange}
-            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-purple-500"
-          />
-        </div>
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Blocked Categories (comma separated)</label>
+            <input
+              type="text"
+              name="blocked_categories"
+              value={policies.blocked_categories}
+              onChange={handleChange}
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-purple-500"
+            />
+          </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label className="block text-xs font-medium text-zinc-400 mb-1">Start Time</label>
             <input
               type="text"
-              value={allowedMerchants}
-              style={{ colorScheme: isDark ? "dark" : "light" }}
-              onChange={(e) => { setAllowedMerchants(e.target.value); setIsConfirmed(false); setSaveError(null); }}
-              className={`mt-1 w-full rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono transition-colors ${
-                isDark ? "border-zinc-800 bg-zinc-900 text-zinc-100" : "border-zinc-300 bg-white text-zinc-900"
-              }`}
               name="allowed_start_time"
               value={policies.allowed_start_time}
               onChange={handleChange}
@@ -369,122 +245,6 @@ export default function PolicyManager() {
             <label className="block text-xs font-medium text-zinc-400 mb-1">End Time</label>
             <input
               type="text"
-              value={blockedCategories}
-              style={{ colorScheme: isDark ? "dark" : "light" }}
-              onChange={(e) => { setBlockedCategories(e.target.value); setIsConfirmed(false); setSaveError(null); }}
-              className={`mt-1 w-full rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono transition-colors ${
-                isDark ? "border-zinc-800 bg-zinc-900 text-zinc-100" : "border-zinc-300 bg-white text-zinc-900"
-              }`}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className={`text-xs font-medium ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>Allowed Start Time</label>
-              <input
-                type="text"
-                value={startTime}
-                style={{ colorScheme: isDark ? "dark" : "light" }}
-                onChange={(e) => { setStartTime(e.target.value); setIsConfirmed(false); setSaveError(null); }}
-                className={`mt-1 w-full rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono transition-colors ${
-                  isDark ? "border-zinc-800 bg-zinc-900 text-zinc-100" : "border-zinc-300 bg-white text-zinc-900"
-                }`}
-              />
-            </div>
-            <div>
-              <label className={`text-xs font-medium ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>Allowed End Time</label>
-              <input
-                type="text"
-                value={endTime}
-                style={{ colorScheme: isDark ? "dark" : "light" }}
-                onChange={(e) => { setEndTime(e.target.value); setIsConfirmed(false); setSaveError(null); }}
-                className={`mt-1 w-full rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono transition-colors ${
-                  isDark ? "border-zinc-800 bg-zinc-900 text-zinc-100" : "border-zinc-300 bg-white text-zinc-900"
-                }`}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Right Column: Structured Mandate Summary Preview */}
-        <div className={`flex flex-col justify-between rounded-2xl border p-6 shadow-xl backdrop-blur transition-colors ${
-          isDark ? "border-zinc-800 bg-zinc-900/60 text-zinc-100" : "border-zinc-200 bg-white text-zinc-900"
-        }`}>
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <span className={`text-sm font-semibold ${isDark ? "text-zinc-200" : "text-zinc-900"}`}>2. Structured Mandate Summary</span>
-              <span className={`rounded-full px-2.5 py-0.5 font-mono text-[11px] font-medium border ${
-                isDark ? "bg-emerald-950/80 text-emerald-400 border-emerald-800/50" : "bg-emerald-50 text-emerald-600 border-emerald-200"
-              }`}>
-                zod validated
-              </span>
-            </div>
-
-            <div className={`rounded-xl border p-5 space-y-3.5 text-sm transition-colors ${
-              isDark ? "border-zinc-800 bg-zinc-950/80 text-zinc-300" : "border-zinc-200 bg-zinc-50 text-zinc-700"
-            }`}>
-              <p className={`text-xs font-semibold uppercase tracking-wider ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>Summary of active rules:</p>
-
-              {isSaving ? (
-                <LoadingState title="Saving policy" message="Updating your spend controls and policy metadata." />
-              ) : saveError ? (
-                <ErrorState title="Policy save failed" message={saveError} onAction={handleActivate} />
-              ) : null}
-
-              {!isSaving && (
-                <ul className="space-y-2.5 text-xs sm:text-sm">
-                  <li className="flex items-start gap-2">
-                    <span className="text-emerald-500 font-bold">•</span>
-                    <span><strong className={isDark ? "text-white" : "text-zinc-900"}>Max Spend:</strong> ${perTransactionMax}.00 per transaction</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-emerald-500 font-bold">•</span>
-                    <span><strong className={isDark ? "text-white" : "text-zinc-900"}>Budgets:</strong> ${dailyBudget}.00 daily / ${monthlyBudget}.00 monthly</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-emerald-500 font-bold">•</span>
-                    <span><strong className={isDark ? "text-white" : "text-zinc-900"}>Manual Approvals:</strong> Required for amounts over ${approvalThreshold}.00</span>
-                  </li>
-                  {normalizedAllowedMerchants.length > 0 ? (
-                    <li className="flex items-start gap-2">
-                      <span className="text-emerald-500 font-bold">•</span>
-                      <span><strong className={isDark ? "text-white" : "text-zinc-900"}>Allowed Places:</strong> {allowedMerchants}</span>
-                    </li>
-                  ) : (
-                    <li className="flex items-start gap-2">
-                      <span className="text-emerald-500 font-bold">•</span>
-                      <span>
-                        <strong className={isDark ? "text-white" : "text-zinc-900"}>Allowed Places:</strong>
-                        <span className="ml-2 inline-block">
-                          <EmptyState title="No merchants configured" message="Add at least one merchant to this policy." />
-                        </span>
-                      </span>
-                    </li>
-                  )}
-                  {normalizedBlockedCategories.length > 0 ? (
-                    <li className="flex items-start gap-2">
-                      <span className="text-emerald-500 font-bold">•</span>
-                      <span><strong className={isDark ? "text-white" : "text-zinc-900"}>Blocked Categories:</strong> {blockedCategories}</span>
-                    </li>
-                  ) : (
-                    <li className="flex items-start gap-2">
-                      <span className="text-emerald-500 font-bold">•</span>
-                      <span>
-                        <strong className={isDark ? "text-white" : "text-zinc-900"}>Blocked Categories:</strong>
-                        <span className="ml-2 inline-block">
-                          <EmptyState title="No blocked categories" message="No categories are currently blocked." />
-                        </span>
-                      </span>
-                    </li>
-                  )}
-                  <li className="flex items-start gap-2">
-                    <span className="text-emerald-500 font-bold">•</span>
-                    <span><strong className={isDark ? "text-white" : "text-zinc-900"}>Time Window:</strong> {startTime} to {endTime} IST</span>
-                  </li>
-                </ul>
-              )}
-            </div>
-          </div>
               name="allowed_end_time"
               value={policies.allowed_end_time}
               onChange={handleChange}
@@ -506,9 +266,6 @@ export default function PolicyManager() {
       <div className="fixed bottom-6 right-6 z-50">
         {!isChatOpen ? (
           <button
-            onClick={handleActivate}
-            disabled={isSaving || isConfirmed}
-            className="mt-6 w-full inline-flex items-center justify-center rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 px-4 py-3 text-white font-semibold text-sm shadow-lg shadow-emerald-950/20 transition-all disabled:opacity-50"
             onClick={() => setIsChatOpen(true)}
             className="bg-purple-600 hover:bg-purple-700 text-white px-5 py-3 rounded-full shadow-2xl flex items-center gap-2 font-medium text-sm transition transform hover:scale-105 cursor-pointer border border-purple-400/30"
           >

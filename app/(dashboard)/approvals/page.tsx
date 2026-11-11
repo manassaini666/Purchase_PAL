@@ -3,22 +3,11 @@ import { useState, useEffect } from "react";
 import { StatusBadge } from "@/components/StatusBadge";
 
 export default function ApprovalsPage() {
-  const [isDark, setIsDark] = useState(true);
-  const [threshold, setThreshold] = useState(68);
-  
-  // Mock test purchase amount
-  const purchaseAmount = 28.50;
-  const requiresApproval = purchaseAmount > threshold;
-  const decisionStatus = requiresApproval ? "NEEDS_APPROVAL" : "ALLOW";
-
-  useEffect(() => {
-    const checkTheme = () => {
-      const saved = localStorage.getItem("theme");
-      setIsDark(saved ? saved === "dark" : true);
-    };
-    checkTheme();
   const [threshold, setThreshold] = useState(32);
   const txAmount = 28.50; // Test transaction amount
+
+  const requiresApproval = txAmount > threshold;
+  const decisionStatus = requiresApproval ? "NEEDS_APPROVAL" : "ALLOW";
 
   const [status, setStatus] = useState("pending");
   const [loading, setLoading] = useState(false);
@@ -82,60 +71,59 @@ export default function ApprovalsPage() {
         </button>
       </div>
 
-      <div className={`flex flex-col items-center justify-center rounded-2xl border p-12 shadow-xl backdrop-blur transition-colors text-center ${
-        isDark ? "border-zinc-800 bg-zinc-900/60 text-zinc-100" : "border-zinc-200 bg-white text-zinc-900"
-      }`}>
+      <div className="flex flex-col items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900/60 p-12 shadow-xl backdrop-blur transition-colors text-center">
         <div className="mb-4">
           <StatusBadge status={decisionStatus} />
         </div>
-        {requiresApproval ? (
-      {message && (
-        <div className={`p-4 rounded-xl text-sm border ${status === "auto-approved" || status === "approved" ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-400" : status === "rejected" ? "bg-red-500/10 border-red-500/25 text-red-400" : "bg-amber-500/10 border-amber-500/25 text-amber-400"}`}>
-          {message}
-        </div>
-      )}
 
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 shadow-xl text-center space-y-6">
-        {status === "pending" ? (
-          <>
-            <div className="w-12 h-12 bg-amber-500/10 border border-amber-500/30 rounded-full flex items-center justify-center mx-auto text-amber-400 text-xl font-bold">
-              !
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-white">Pending Approval Required</h3>
-              <p className="text-sm text-zinc-400 mt-1">Your ₹{txAmount} purchase exceeds your threshold (₹{threshold}) and requires manual authorization.</p>
-            </div>
-
-            <div className="flex justify-center gap-4 pt-4">
-              <button
-                onClick={handleApprove}
-                disabled={loading}
-                className="bg-emerald-600 hover:bg-emerald-700 font-medium px-6 py-3 rounded-xl text-sm transition shadow-lg shadow-emerald-600/25 disabled:opacity-50 text-white cursor-pointer"
-              >
-                {loading ? "Processing..." : "Approve Transaction"}
-              </button>
-              <button
-                onClick={handleReject}
-                disabled={loading}
-                className="bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 font-medium px-6 py-3 rounded-xl text-sm transition text-red-400 disabled:opacity-50 cursor-pointer"
-              >
-                Reject
-              </button>
-            </div>
-          </>
-        ) : status === "auto-approved" || status === "approved" ? (
-          <div className="py-8 space-y-2">
-            <div className="text-emerald-400 text-3xl font-bold">✓ {status === "auto-approved" ? "Auto-Approved" : "Approved"}</div>
-            <p className="text-sm text-zinc-400">This transaction successfully bypassed manual approval based on your policy settings.</p>
-          </div>
-        ) : (
-          <div className="py-8 space-y-2">
-            <div className="text-red-400 text-3xl font-bold">✕ Rejected</div>
-            <p className="text-sm text-zinc-400">This transaction has been successfully blocked.</p>
+        {message && (
+          <div className={`p-4 rounded-xl text-sm border ${status === "auto-approved" || status === "approved" ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-400" : status === "rejected" ? "bg-red-500/10 border-red-500/25 text-red-400" : "bg-amber-500/10 border-amber-500/25 text-amber-400"}`}>
+            {message}
           </div>
         )}
+
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 shadow-xl text-center space-y-6">
+          {status === "pending" ? (
+            <>
+              <div className="w-12 h-12 bg-amber-500/10 border border-amber-500/30 rounded-full flex items-center justify-center mx-auto text-amber-400 text-xl font-bold">
+                !
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white">Pending Approval Required</h3>
+                <p className="text-sm text-zinc-400 mt-1">Your ₹{txAmount} purchase exceeds your threshold (₹{threshold}) and requires manual authorization.</p>
+              </div>
+
+              <div className="flex justify-center gap-4 pt-4">
+                <button
+                  onClick={handleApprove}
+                  disabled={loading}
+                  className="bg-emerald-600 hover:bg-emerald-700 font-medium px-6 py-3 rounded-xl text-sm transition shadow-lg shadow-emerald-600/25 disabled:opacity-50 text-white cursor-pointer"
+                >
+                  {loading ? "Processing..." : "Approve Transaction"}
+                </button>
+                <button
+                  onClick={handleReject}
+                  disabled={loading}
+                  className="bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 font-medium px-6 py-3 rounded-xl text-sm transition text-red-400 disabled:opacity-50 cursor-pointer"
+                >
+                  Reject
+                </button>
+              </div>
+            </>
+          ) : status === "auto-approved" || status === "approved" ? (
+            <div className="py-8 space-y-2">
+              <div className="text-emerald-400 text-3xl font-bold">✓ {status === "auto-approved" ? "Auto-Approved" : "Approved"}</div>
+              <p className="text-sm text-zinc-400">This transaction successfully bypassed manual approval based on your policy settings.</p>
+            </div>
+          ) : (
+            <div className="py-8 space-y-2">
+              <div className="text-red-400 text-3xl font-bold">✕ Rejected</div>
+              <p className="text-sm text-zinc-400">This transaction has been successfully blocked.</p>
+            </div>
+          )}
+        </div>
       </div>
-      <p className={`text-xs ${isDark ? "text-zinc-500" : "text-zinc-600"}`}>
+      <p className="text-xs text-zinc-500">
         merchant_a and merchant_b are demo labels. All sandbox payments go to one sandbox merchant account.
       </p>
     </div>
