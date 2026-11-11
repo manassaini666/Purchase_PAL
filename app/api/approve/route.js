@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { sendTelegramAlert } from '../../../telegram';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -19,15 +20,20 @@ export async function POST(request) {
       );
     }
 
-    /* 
-      TODO: Member A & B -> Connect this to the official PayPal Sandbox API.
-      Make a POST request to:
-      https://paypal.com{orderID}/capture
+    /*
+    TODO: Member A & B -> Connect this to the official PayPal Sandbox API.
+    Make a POST request to:
+    https://paypal.com{orderID}/capture
     */
 
+    // Send Telegram alert upon successful order approval
+    await sendTelegramAlert(
+      `🚨 *Purchase Pal Alert*\n\n✅ *Order Captured & Approved!*\n• Order ID: \`${orderID}\`\n• Status: COMPLETED`
+    );
+
     return NextResponse.json(
-      { 
-        success: true, 
+      {
+        success: true,
         message: `Order ${orderID} successfully captured and approved!`,
         status: "COMPLETED"
       },
@@ -35,6 +41,7 @@ export async function POST(request) {
     );
 
   } catch (error) {
+    console.error('Error capturing PayPal order:', error);
     return NextResponse.json(
       { success: false, error: "Failed to capture PayPal order" },
       { status: 500, headers: corsHeaders }
