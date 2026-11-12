@@ -10,12 +10,13 @@ export default function PoliciesPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [userEmail, setUserEmail] = useState("");
+  const [telegramChatId, setTelegramChatId] = useState("");
 
   // AI Chatbot States
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatInput, setChatInput] = useState("");
   const [messages, setMessages] = useState([
-    { sender: "ai", text: "Namaste! Main aapka Purchase Pal AI Assistant hoon. Aap apni spending policies ke baare me kuch bhi pooch sakte hain!" }
+    { sender: "ai", text: "Hello! I am your AI Assistant for Purchase Pal. You can ask me anything about your transactions and policies." }
   ]);
 
   const [policies, setPolicies] = useState({
@@ -54,6 +55,9 @@ export default function PoliciesPage() {
             allowed_start_time: data.allowed_start_time || "08:00 AM",
             allowed_end_time: data.allowed_end_time || "10:00 PM"
           });
+          if (data.telegram_chat_id) {
+            setTelegramChatId(data.telegram_chat_id);
+          }
         } else {
           const savedLocal = localStorage.getItem("purchase_pal_policies");
           if (savedLocal) setPolicies(JSON.parse(savedLocal));
@@ -93,10 +97,11 @@ export default function PoliciesPage() {
           blocked_categories: policies.blocked_categories,
           allowed_start_time: policies.allowed_start_time,
           allowed_end_time: policies.allowed_end_time,
+          telegram_chat_id: telegramChatId,
           updated_at: new Date()
         }, { onConflict: "user_id" });
 
-      setMessage("Policies updated successfully!");
+      setMessage("Policies and Telegram settings updated successfully!");
     } catch {
       setMessage("Policies updated successfully!");
     } finally {
@@ -119,17 +124,19 @@ export default function PoliciesPage() {
     setMessages(newMessages);
     setChatInput("");
 
-    // Smart AI response logic based on current policies
+    // Smart AI response logic in English
     setTimeout(() => {
-      let aiReply = "Main aapki isme madad kar sakta hoon! Aap apni limits yahan upar form me update kar sakte hain.";
+      let aiReply = "I can help you with that! You can update your limits directly using the form above.";
       const lower = userMsg.toLowerCase();
 
       if (lower.includes("budget") || lower.includes("limit")) {
-        aiReply = `Aapka current Daily Budget $${policies.daily_budget} aur Monthly Budget $${policies.monthly_budget} set hai.`;
+        aiReply = `Your current Daily Budget is $${policies.daily_budget} and Monthly Budget is $${policies.monthly_budget}.`;
       } else if (lower.includes("approve") || lower.includes("threshold")) {
-        aiReply = `Aapka Manual Approval Threshold $${policies.manual_approval_above} hai. Isse kam ki transaction auto-approve ho jayegi!`;
+        aiReply = `Your Manual Approval Threshold is set to $${policies.manual_approval_above}. Transactions below this will be auto-approved!`;
       } else if (lower.includes("merchant") || lower.includes("allowed")) {
-        aiReply = `Allowed Merchants hain: ${policies.allowed_merchants}.`;
+        aiReply = `Allowed merchants are: ${policies.allowed_merchants}.`;
+      } else if (lower.includes("telegram") || lower.includes("bot")) {
+        aiReply = "You can link your Telegram Chat ID in the form below to receive instant spending alerts!";
       }
 
       setMessages((prev) => [...prev, { sender: "ai", text: aiReply }]);
@@ -250,6 +257,20 @@ export default function PoliciesPage() {
               onChange={handleChange}
               className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-purple-500"
             />
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="block text-xs font-medium text-purple-300 mb-1">Telegram Chat ID (Required for Alerts)</label>
+            <input
+              type="text"
+              value={telegramChatId}
+              onChange={(e) => setTelegramChatId(e.target.value)}
+              placeholder="Enter your Telegram Chat ID"
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-purple-500 font-mono"
+            />
+            <p className="text-[11px] text-zinc-400 mt-1">
+              Send <span className="text-purple-400 font-mono">/start</span> to the bot and enter your Chat ID here.
+            </p>
           </div>
         </div>
 
