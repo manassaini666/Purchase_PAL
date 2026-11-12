@@ -1,58 +1,53 @@
-"use client";
+'use client';
 import { useState } from "react";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState(""); // Hardcoded email hata diya hai
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
   const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!email || !password) {
-      setMessage("Please enter both email and password.");
-      return;
-    }
-
-    setLoading(true);
-    setMessage("");
+    if (!email || !password) return;
 
     try {
       const res = await fetch("/api/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, isSignUp }),
+        body: JSON.stringify({
+          action: isSignUp ? "signup" : "login",
+          email,
+          password,
+        }),
       });
+
       const data = await res.json();
 
-      if (res.ok && data.success) {
-        localStorage.setItem("purchase_pal_user_id", email);
-        setMessage(isSignUp ? "Account created successfully! Redirecting..." : "Signed in successfully! Redirecting...");
-        setTimeout(() => {
-          window.location.href = "/policies";
-        }, 600);
-      } else {
-        setMessage(data.error || "Invalid email or password.");
-        setLoading(false);
+      if (!res.ok) {
+        setMessage(data.error || "Authentication failed");
+        return;
       }
+
+      localStorage.setItem("purchase_pal_user_id", email);
+      setMessage(isSignUp ? "Account created successfully! Redirecting..." : "Signed in successfully! Redirecting...");
+
+      setTimeout(() => {
+        window.location.href = "/policies";
+      }, 1000);
     } catch (err) {
-      setMessage("Connection error. Please try again.");
-      setLoading(false);
+      setMessage("Something went wrong. Please try again.");
     }
   };
 
   const handleBypass = () => {
-    const customEmail = prompt("Enter your email to continue instantly:", "user@example.com");
-    if (customEmail) {
-      localStorage.setItem("purchase_pal_user_id", customEmail);
-      window.location.href = "/policies";
-    }
+    localStorage.setItem("purchase_pal_user_id", "manassaini666@gmail.com");
+    window.location.href = "/policies";
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-zinc-950 p-4">
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 w-full max-w-md shadow-2xl space-y-6 text-white">
+      <div className="max-w-md w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-8 shadow-2xl space-y-6 text-white">
         <div className="text-center space-y-2">
           <h1 className="text-2xl font-bold text-purple-400">Purchase Pal</h1>
           <p className="text-xs text-zinc-400">
@@ -61,7 +56,7 @@ export default function LoginPage() {
         </div>
 
         {message && (
-          <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/25 text-purple-400 text-xs text-center font-medium">
+          <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-xs">
             {message}
           </div>
         )}
@@ -93,10 +88,9 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            disabled={loading}
-            className="w-full bg-purple-600 hover:bg-purple-700 font-medium py-3 rounded-lg text-sm transition shadow-lg shadow-purple-600/25 text-white disabled:opacity-50"
+            className="w-full bg-purple-600 hover:bg-purple-700 font-medium py-3 rounded-lg text-sm transition shadow-lg shadow-purple-600/20"
           >
-            {loading ? "Processing..." : isSignUp ? "Create Account" : "Sign In"}
+            {isSignUp ? "Create Account" : "Sign In"}
           </button>
         </form>
 
@@ -108,11 +102,11 @@ export default function LoginPage() {
           >
             {isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up"}
           </button>
-
+          
           <button
             type="button"
             onClick={handleBypass}
-            className="w-full bg-zinc-800 hover:bg-zinc-700 text-purple-300 font-medium py-2.5 rounded-lg text-xs transition border border-zinc-700"
+            className="w-full bg-zinc-800 hover:bg-zinc-700 text-purple-300 font-medium py-2.5 rounded-lg text-xs transition"
           >
             🚀 Skip & Enter App Instantly
           </button>
