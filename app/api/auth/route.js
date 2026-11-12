@@ -6,7 +6,6 @@ export async function POST(request) {
     const { action, email, password } = await request.json();
 
     if (action === "signup") {
-      // Use Supabase Auth signup to handle email verification and token generation
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -16,7 +15,6 @@ export async function POST(request) {
         return NextResponse.json({ success: false, error: error.message }, { status: 400 });
       }
 
-      // Default policy config insert/upsert kar do
       await supabase.from("policy_config").upsert([{
         user_id: data.user?.id || email,
         max_spend_per_tx: 63,
@@ -29,18 +27,18 @@ export async function POST(request) {
         allowed_end_time: "22:00"
       }]);
 
-      return NextResponse.json({ success: true, message: "Signup successful! Please check your email for verification." });
+      return NextResponse.json({ success: true, message: "Signup successful!" });
     }
 
     if (action === "login") {
-      // Use Supabase Auth signInWithPassword to enforce email verification and sessions
+      // Supabase checks email and password securely here
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) {
-        return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+        return NextResponse.json({ success: false, error: error.message }, { status: 401 });
       }
 
       return NextResponse.json({ success: true, message: "Login successful!", session: data.session });
@@ -48,6 +46,6 @@ export async function POST(request) {
 
     return NextResponse.json({ success: false, error: "Invalid action" }, { status: 400 });
   } catch (err) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 400 });
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
