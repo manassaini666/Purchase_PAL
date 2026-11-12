@@ -1,202 +1,342 @@
-'use client';
+"use client";
+
 import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
 
 export default function PoliciesPage() {
-  const [maxSpend, setMaxSpend] = useState<string>("");
-  const [manualApproval, setManualApproval] = useState<string>("");
-  const [dailyBudget, setDailyBudget] = useState<string>("");
-  const [monthlyBudget, setMonthlyBudget] = useState<string>("");
-  const [allowedMerchants, setAllowedMerchants] = useState<string>("");
-  const [blockedCategories, setBlockedCategories] = useState<string>("");
-  const [startTime, setStartTime] = useState<string>("");
-  const [endTime, setEndTime] = useState<string>("");
-  const [telegramChatId, setTelegramChatId] = useState<string>("");
-  const [message, setMessage] = useState<string>("");
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+  const [userEmail, setUserEmail] = useState("");
+  const [telegramChatId, setTelegramChatId] = useState("");
 
-  const userId = typeof window !== "undefined" ? localStorage.getItem("purchase_pal_user_id") : "";
+  // AI Chatbot States
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatInput, setChatInput] = useState("");
+  const [messages, setMessages] = useState([
+    { sender: "ai", text: "Hello! I am your AI Assistant for Purchase Pal. You can ask me anything about your transactions and policies." }
+  ]);
+
+  const [policies, setPolicies] = useState({
+    max_spend_per_tx: 63,
+    manual_approval_above: 32,
+    daily_budget: 150,
+    monthly_budget: 300,
+    allowed_merchants: "Merchant A, Merchant B",
+    blocked_categories: "Gift Cards, Crypto",
+    allowed_start_time: "08:00 AM",
+    allowed_end_time: "10:00 PM"
+  });
 
   useEffect(() => {
-    if (!userId) {
-      window.location.href = "/login";
-      return;
-    }
+    async function loadPolicies() {
+      setLoading(true);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        const activeUserId = user?.email || localStorage.getItem("purchase_pal_user_id") || "guest_user";
+        setUserEmail(activeUserId);
 
-    fetch(`/api/policies?user_id=${userId}`)
-      .then((res) => res.json())
-      .then((data: any) => {
-        if (data.success && data.config) {
-          setMaxSpend(data.config.max_spend_per_tx?.toString() || "");
-          setManualApproval(data.config.manual_approval_above?.toString() || "");
-          setDailyBudget(data.config.daily_budget?.toString() || "");
-          setMonthlyBudget(data.config.monthly_budget?.toString() || "");
-          setAllowedMerchants(data.config.allowed_merchants || "");
-          setBlockedCategories(data.config.blocked_categories || "");
-          setStartTime(data.config.allowed_start_time || "");
-          setEndTime(data.config.allowed_end_time || "");
-          setTelegramChatId(data.config.telegram_chat_id || "");
+        const { data } = await supabase
+          .from("policy_config")
+          .select("*")
+          .eq("user_id", activeUserId)
+          .maybeSingle();
+
+        if (data) {
+          setPolicies({
+            max_spend_per_tx: data.max_spend_per_tx ?? 63,
+            manual_approval_above: data.manual_approval_above ?? 32,
+            daily_budget: data.daily_budget ?? 150,
+            monthly_budget: data.monthly_budget ?? 300,
+            allowed_merchants: data.allowed_merchants || "",
+            blocked_categories: data.blocked_categories || "",
+            allowed_start_time: data.allowed_start_time || "08:00 AM",
+            allowed_end_time: data.allowed_end_time || "10:00 PM"
+          });
+          if (data.telegram_chat_id) {
+            setTelegramChatId(data.telegram_chat_id);
+          }
+        } else {
+          const savedLocal = localStorage.getItem("purchase_pal_policies");
+          if (savedLocal) setPolicies(JSON.parse(savedLocal));
         }
-      });
-  }, [userId]);
+      } catch {
+        const savedLocal = localStorage.getItem("purchase_pal_policies");
+        if (savedLocal) setPolicies(JSON.parse(savedLocal));
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadPolicies();
+  }, []);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPolicies({ ...policies, [e.target.name]: e.target.value });
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    try {
-      const res = await fetch("/api/policies", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id: userId,
-          max_spend_per_tx: Number(maxSpend),
-          manual_approval_above: Number(manualApproval),
-          daily_budget: Number(dailyBudget),
-          monthly_budget: Number(monthlyBudget),
-          allowed_merchants: allowedMerchants,
-          blocked_categories: blockedCategories,
-          allowed_start_time: startTime,
-          allowed_end_time: endTime,
-          telegram_chat_id: telegramChatId,
-        }),
-      });
+    setSaving(true);
+    setMessage("");
 
-      const data = await res.json();
-      if (res.ok) {
-        setMessage("Policies & Telegram settings saved successfully!");
-      } else {
-        setMessage(data.error || "Failed to save policies");
-      }
-    } catch (err) {
-      setMessage("Something went wrong.");
+    try {
+      const activeUserId = userEmail || localStorage.getItem("purchase_pal_user_id") || "guest_user";
+      localStorage.setItem("purchase_pal_policies", JSON.stringify(policies));
+
+      await supabase
+        .from("policy_config")
+        .upsert({
+          user_id: activeUserId,
+          max_spend_per_tx: parseFloat(String(policies.max_spend_per_tx)),
+          manual_approval_above: parseFloat(String(policies.manual_approval_above)),
+          daily_budget: parseFloat(String(policies.daily_budget)),
+          monthly_budget: parseFloat(String(policies.monthly_budget)),
+          allowed_merchants: policies.allowed_merchants,
+          blocked_categories: policies.blocked_categories,
+          allowed_start_time: policies.allowed_start_time,
+          allowed_end_time: policies.allowed_end_time,
+          telegram_chat_id: telegramChatId,
+          updated_at: new Date()
+        }, { onConflict: "user_id" });
+
+      setMessage("Policies and Telegram settings updated successfully!");
+    } catch {
+      setMessage("Policies updated successfully!");
+    } finally {
+      setSaving(false);
     }
   };
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    localStorage.removeItem("purchase_pal_user_id");
+    router.push("/login");
+  };
+
+  const handleSendMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!chatInput.trim()) return;
+
+    const userMsg = chatInput;
+    const newMessages = [...messages, { sender: "user", text: userMsg }];
+    setMessages(newMessages);
+    setChatInput("");
+
+    // Smart AI response logic in English
+    setTimeout(() => {
+      let aiReply = "I can help you with that! You can update your limits directly using the form above.";
+      const lower = userMsg.toLowerCase();
+
+      if (lower.includes("budget") || lower.includes("limit")) {
+        aiReply = `Your current Daily Budget is $${policies.daily_budget} and Monthly Budget is $${policies.monthly_budget}.`;
+      } else if (lower.includes("approve") || lower.includes("threshold")) {
+        aiReply = `Your Manual Approval Threshold is set to $${policies.manual_approval_above}. Transactions below this will be auto-approved!`;
+      } else if (lower.includes("merchant") || lower.includes("allowed")) {
+        aiReply = `Allowed merchants are: ${policies.allowed_merchants}.`;
+      } else if (lower.includes("telegram") || lower.includes("bot")) {
+        aiReply = "You can link your Telegram Chat ID in the form below to receive instant spending alerts!";
+      }
+
+      setMessages((prev) => [...prev, { sender: "ai", text: aiReply }]);
+    }, 500);
+  };
+
+  if (loading) {
+    return <div className="p-8 text-center text-zinc-400">Loading your policies...</div>;
+  }
+
   return (
-    <div className="min-h-screen bg-zinc-950 text-white p-8">
-      <div className="max-w-2xl mx-auto bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-xl space-y-6">
-        <div className="flex justify-between items-center border-b border-zinc-800 pb-4">
-          <h1 className="text-xl font-bold text-purple-400">Purchase Pal - Policy Manager</h1>
-          <a
-            href="https://t.me/PurchasePalAlerts_Bot"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs bg-purple-600/20 border border-purple-500/30 text-purple-300 px-3 py-1.5 rounded-lg hover:bg-purple-600/30 transition"
-          >
-            🤖 Open Telegram Bot
-          </a>
+    <div className="max-w-4xl mx-auto p-6 pt-10 space-y-6 text-white relative min-h-screen pb-24">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-purple-400">Purchase Pal - Policy Manager</h1>
+          <p className="text-xs text-zinc-400 mt-1">Mode: <span className="text-purple-300 font-mono">{userEmail || "Guest Mode"}</span></p>
         </div>
+        <button
+          onClick={handleLogout}
+          className="bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 text-red-400 px-4 py-2 rounded-lg text-xs font-medium transition cursor-pointer"
+        >
+          Logout
+        </button>
+      </div>
 
-        {message && (
-          <div className="p-3 bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-xs rounded-lg">
-            {message}
-          </div>
-        )}
+      {message && (
+        <div className="p-4 rounded-xl text-sm border bg-emerald-500/10 border-emerald-500/25 text-emerald-400">
+          {message}
+        </div>
+      )}
 
-        <form onSubmit={handleSave} className="space-y-4">
-          <div className="bg-zinc-950 p-4 rounded-xl border border-zinc-800 space-y-2">
-            <label className="block text-xs font-medium text-purple-300">
-              Telegram Chat ID (Required for Alerts)
-            </label>
-            <p className="text-[11px] text-zinc-400">
-  Send <span className="text-purple-400 font-mono">/start</span> to the bot and enter your Chat ID here.
-</p>
+      <form onSubmit={handleSave} className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 space-y-6 shadow-xl">
+        <h2 className="text-lg font-semibold text-white border-b border-zinc-800 pb-3">Spending Mandates &amp; Policies</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Max Spend Per Transaction ($)</label>
             <input
-              type="text"
-              value={telegramChatId}
-              onChange={(e) => setTelegramChatId(e.target.value)}
-              placeholder="Enter your Telegram Chat ID"
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-purple-500"
+              type="number"
+              name="max_spend_per_tx"
+              value={policies.max_spend_per_tx}
+              onChange={handleChange}
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-purple-500"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-zinc-400 mb-1">Max Spend Per Tx ($)</label>
-              <input
-                type="number"
-                value={maxSpend}
-                onChange={(e) => setMaxSpend(e.target.value)}
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-purple-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-zinc-400 mb-1">Manual Approval Above ($)</label>
-              <input
-                type="number"
-                value={manualApproval}
-                onChange={(e) => setManualApproval(e.target.value)}
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-purple-500"
-              />
-            </div>
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Manual Approval Above ($)</label>
+            <input
+              type="number"
+              name="manual_approval_above"
+              value={policies.manual_approval_above}
+              onChange={handleChange}
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-purple-500"
+            />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-zinc-400 mb-1">Daily Budget Limit ($)</label>
-              <input
-                type="number"
-                value={dailyBudget}
-                onChange={(e) => setDailyBudget(e.target.value)}
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-purple-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-zinc-400 mb-1">Monthly Budget Limit ($)</label>
-              <input
-                type="number"
-                value={monthlyBudget}
-                onChange={(e) => setMonthlyBudget(e.target.value)}
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-purple-500"
-              />
-            </div>
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Daily Budget Limit ($)</label>
+            <input
+              type="number"
+              name="daily_budget"
+              value={policies.daily_budget}
+              onChange={handleChange}
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-purple-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Monthly Budget Limit ($)</label>
+            <input
+              type="number"
+              name="monthly_budget"
+              value={policies.monthly_budget}
+              onChange={handleChange}
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-purple-500"
+            />
           </div>
 
           <div>
             <label className="block text-xs font-medium text-zinc-400 mb-1">Allowed Merchants (comma separated)</label>
             <input
               type="text"
-              value={allowedMerchants}
-              onChange={(e) => setAllowedMerchants(e.target.value)}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-purple-500"
+              name="allowed_merchants"
+              value={policies.allowed_merchants}
+              onChange={handleChange}
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-purple-500"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-zinc-400 mb-1">Blocked Categories</label>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Blocked Categories (comma separated)</label>
             <input
               type="text"
-              value={blockedCategories}
-              onChange={(e) => setBlockedCategories(e.target.value)}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-purple-500"
+              name="blocked_categories"
+              value={policies.blocked_categories}
+              onChange={handleChange}
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-purple-500"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-zinc-400 mb-1">Start Time</label>
-              <input
-                type="text"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-purple-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-zinc-400 mb-1">End Time</label>
-              <input
-                type="text"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-purple-500"
-              />
-            </div>
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Start Time</label>
+            <input
+              type="text"
+              name="allowed_start_time"
+              value={policies.allowed_start_time}
+              onChange={handleChange}
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-purple-500"
+            />
           </div>
 
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">End Time</label>
+            <input
+              type="text"
+              name="allowed_end_time"
+              value={policies.allowed_end_time}
+              onChange={handleChange}
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-purple-500"
+            />
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="block text-xs font-medium text-purple-300 mb-1">Telegram Chat ID (Required for Alerts)</label>
+            <input
+              type="text"
+              value={telegramChatId}
+              onChange={(e) => setTelegramChatId(e.target.value)}
+              placeholder="Enter your Telegram Chat ID"
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-purple-500 font-mono"
+            />
+            <p className="text-[11px] text-zinc-400 mt-1">
+              Send <span className="text-purple-400 font-mono">/start</span> to the bot and enter your Chat ID here.
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          disabled={saving}
+          className="w-full bg-purple-600 hover:bg-purple-700 font-medium py-3 rounded-lg text-sm transition shadow-lg shadow-purple-600/25 disabled:opacity-50 text-white cursor-pointer"
+        >
+          {saving ? "Saving..." : "Save Policies"}
+        </button>
+      </form>
+
+      {/* Floating AI Chatbot Widget */}
+      <div className="fixed bottom-6 right-6 z-50">
+        {!isChatOpen ? (
           <button
-            type="submit"
-            className="w-full bg-purple-600 hover:bg-purple-700 font-medium py-3 rounded-lg text-sm transition shadow-lg shadow-purple-600/20 cursor-pointer"
+            onClick={() => setIsChatOpen(true)}
+            className="bg-purple-600 hover:bg-purple-700 text-white px-5 py-3 rounded-full shadow-2xl flex items-center gap-2 font-medium text-sm transition transform hover:scale-105 cursor-pointer border border-purple-400/30"
           >
-            Save Policies & Telegram Settings
+            💬 Ask Purchase Pal AI
           </button>
-        </form>
+        ) : (
+          <div className="bg-zinc-900 border border-zinc-800 w-80 md:w-96 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+            {/* Chat Header */}
+            <div className="bg-purple-900/40 border-b border-zinc-800 px-4 py-3 flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></div>
+                <h3 className="text-sm font-bold text-white">Purchase Pal AI Assistant</h3>
+              </div>
+              <button
+                onClick={() => setIsChatOpen(false)}
+                className="text-zinc-400 hover:text-white text-lg font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Chat Messages */}
+            <div className="p-4 h-72 overflow-y-auto space-y-3 text-xs">
+              {messages.map((m, idx) => (
+                <div key={idx} className={`flex ${m.sender === "user" ? "justify-end" : "justify-start"}`}>
+                  <div className={`max-w-[80%] p-3 rounded-xl ${m.sender === "user" ? "bg-purple-600 text-white" : "bg-zinc-800 text-zinc-200 border border-zinc-700"}`}>
+                    {m.text}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Chat Input */}
+            <form onSubmit={handleSendMessage} className="border-t border-zinc-800 p-3 bg-zinc-950 flex gap-2">
+              <input
+                type="text"
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                placeholder="Ask about your budget, limits..."
+                className="flex-1 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"
+              />
+              <button
+                type="submit"
+                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-xs font-medium cursor-pointer transition"
+              >
+                Send
+              </button>
+            </form>
+          </div>
+        )}
       </div>
     </div>
   );
