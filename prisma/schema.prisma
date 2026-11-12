@@ -1,20 +1,20 @@
 // use prisma-8
 
 model Policy {
-  id                String   @id @onCreate(uuid())
-  maxSpendPerTx     Float    @default(63.00)
-  manualApprovalAbove Float  @default(1.00)
-  dailyBudget       Float    @default(150.00)
-  monthlyBudget     Float    @default(300.00)
-  allowedMerchants  String   @default("Merchant A, Merchant B")
-  blockedCategories String   @default("Gift Cards, Crypto")
-  allowedStartTime  String   @default("08:00")
-  allowedEndTime    String   @default("22:00")
-  updatedAt         DateTime @onCreate(now()) @onUpdate(now())
+  id                  String   @id @default(onCreate(uuid()))
+  maxSpendPerTx       Float    @default(63.00)
+  manualApprovalAbove Float    @default(1.00)
+  dailyBudget         Float    @default(150.00)
+  monthlyBudget       Float    @default(300.00)
+  allowedMerchants    String   @default("Merchant A, Merchant B")
+  blockedCategories   String   @default("Gift Cards, Crypto")
+  allowedStartTime    String   @default("08:00")
+  allowedEndTime      String   @default("22:00")
+  updatedAt           DateTime @default(onCreate(now())) @onUpdate(now())
 }
 
 model Transaction {
-  id        String   @id @onCreate(uuid())
+  id        String   @id @default(onCreate(uuid()))
   amount    Float
   merchant  String
   category  String
@@ -23,7 +23,7 @@ model Transaction {
 }
 
 model Dispute {
-  id             String   @id @onCreate(cuid(2))
+  id             String   @id @default(onCreate(uuid(2)))
   transactionId  String
   merchantName   String
   freelancerName String
@@ -31,5 +31,13 @@ model Dispute {
   disputeReason  String
   status         String   @default("PENDING_ARBITRATION")
   aiVerdict      String?
+  createdAt      DateTime @default(now())
+}
+
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  name           String?
+  telegramChatId String?
   createdAt      DateTime @default(now())
 }

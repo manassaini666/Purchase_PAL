@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sendTelegramAlert } from '../../../telegram';
+// import prisma from '@/lib/prisma'; // Apne project ka prisma instance import karein
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -7,11 +8,10 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
-// Handle the route to Capture/Approve a completed PayPal Order
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { orderID } = body;
+    const { orderID, userEmail } = body; // Request se user ka email ya identifier lein
 
     if (!orderID) {
       return NextResponse.json(
@@ -20,15 +20,22 @@ export async function POST(request) {
       );
     }
 
-    /*
-    TODO: Member A & B -> Connect this to the official PayPal Sandbox API.
-    Make a POST request to:
-    https://paypal.com{orderID}/capture
-    */
+    // Database se user ki telegramChatId nikalein (Agar userEmail available hai)
+    let recipientChatId = process.env.TELEGRAM_CHAT_ID; // Fallback to admin/default ID
+    
+    if (userEmail) {
+      const dbUser = await prisma.user.findUnique({
+        where: { email: userEmail },
+      });
+      if (dbUser && dbUser.telegramChatId) {
+        recipientChatId = dbUser.telegramChatId;
+      }
+    }
 
-    // Send Telegram alert upon successful order approval
+    // Us specific user ko Telegram alert bhejein
     await sendTelegramAlert(
-      `🚨 *Purchase Pal Alert*\n\n✅ *Order Captured & Approved!*\n• Order ID: \`${orderID}\`\n• Status: COMPLETED`
+      `🚨 *Purchase Pal Alert*\n\n✅ *Order Captured & Approved!*\n• Order ID: \`${orderID}\`\n• Status: COMPLETED`,
+      recipientChatId // Dynamic user chat ID passed here!
     );
 
     return NextResponse.json(
