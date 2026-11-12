@@ -4,6 +4,7 @@ import { useState } from "react";
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -35,6 +36,35 @@ export default function LoginPage() {
       setTimeout(() => {
         window.location.href = "/policies";
       }, 1000);
+    } catch (err) {
+      setMessage("Something went wrong. Please try again.");
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      setMessage("Please enter your email address first!");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "forgot-password",
+          email,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setMessage(data.error || "Failed to send reset link");
+        return;
+      }
+
+      setMessage("Password reset link sent to your email!");
     } catch (err) {
       setMessage("Something went wrong. Please try again.");
     }
@@ -76,14 +106,35 @@ export default function LoginPage() {
 
           <div>
             <label className="block text-xs font-medium text-zinc-400 mb-1">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              placeholder="••••••••"
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-purple-500"
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                placeholder="••••••••"
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 pr-16 text-sm text-white focus:outline-none focus:border-purple-500"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-400 hover:text-purple-400 transition"
+              >
+                {showPassword ? "Hide" : "Show"}
+              </button>
+            </div>
+            
+            {!isSignUp && (
+              <div className="flex justify-end mt-1">
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  className="text-[11px] text-zinc-400 hover:text-purple-400 transition cursor-pointer"
+                >
+                  Forgot password?
+                </button>
+              </div>
+            )}
           </div>
 
           <button

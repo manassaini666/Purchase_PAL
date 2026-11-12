@@ -5,6 +5,7 @@ export async function POST(request) {
   try {
     const { action, email, password } = await request.json();
 
+    // 1. Signup Action
     if (action === "signup") {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -30,8 +31,8 @@ export async function POST(request) {
       return NextResponse.json({ success: true, message: "Signup successful!" });
     }
 
+    // 2. Login Action
     if (action === "login") {
-      // Supabase checks email and password securely here
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -42,6 +43,19 @@ export async function POST(request) {
       }
 
       return NextResponse.json({ success: true, message: "Login successful!", session: data.session });
+    }
+
+    // 3. Forgot Password Action
+    if (action === "forgot-password") {
+      const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${request.headers.get("origin")}/login`,
+      });
+
+      if (error) {
+        return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+      }
+
+      return NextResponse.json({ success: true, message: "Password reset link sent successfully!" });
     }
 
     return NextResponse.json({ success: false, error: "Invalid action" }, { status: 400 });
