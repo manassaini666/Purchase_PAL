@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import prisma from '../../../lib/prisma'; // Apne project ka prisma import check kar lein
+import prisma from '../../lib/prisma'; // Apne project ka prisma import check kar lein
 import bcrypt from 'bcrypt'; // Agar passwords bcrypt se hashed hain
 
 export async function POST(request) {
