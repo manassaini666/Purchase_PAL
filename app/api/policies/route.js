@@ -1,72 +1,104 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 
+// Helper function to send Telegram alert to specific user
+async function sendTelegramAlert(chatId, text) {
+  if (!chatId) return;
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) return;
+
+  try {
+    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: text,
+        parse_mode: "Markdown",
+      }),
+    });
+  } catch (err) {
+    console.error("Failed to send telegram notification:", err);
+  }
+}
+
 export async function GET(request) {
   try {
-    const url = new URL(request.url);
-    const userId = url.searchParams.get("userId") || "default-user";
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get("user_id");
 
-    let { data: policy } = await supabase.from("policy_config").select("*").eq("user_id", userId).maybeSingle();
-
-    if (!policy) {
-      await supabase.from("policy_config").insert([{
-        user_id: userId,
-        max_spend_per_tx: 63,
-        manual_approval_above: 15,
-        daily_budget: 150,
-        monthly_budget: 300,
-        allowed_merchants: "Merchant A, Merchant B",
-        blocked_categories: "Gift Cards, Crypto",
-        allowed_start_time: "08:00",
-        allowed_end_time: "22:00"
-      }]);
-
-      const res = await supabase.from("policy_config").select("*").eq("user_id", userId).single();
-      policy = res.data;
+    if (!userId) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
 
-    // Map database snake_case to frontend camelCase
-    const formattedPolicy = {
-      maxSpendPerTx: policy.max_spend_per_tx,
-      manualApprovalAbove: policy.manual_approval_above,
-      dailyBudget: policy.daily_budget,
-      monthlyBudget: policy.monthly_budget,
-      allowedMerchants: policy.allowed_merchants,
-      blockedCategories: policy.blocked_categories,
-      allowedStartTime: policy.allowed_start_time,
-      allowedEndTime: policy.allowed_end_time,
-    };
+    const { data, error } = await supabase
+      .from("policy_config")
+      .select("*")
+      .eq("user_id", userId)
+      .single();
 
-    return NextResponse.json({ success: true, policy: formattedPolicy });
-  } catch (error) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    if (error) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+    }
+
+    return NextResponse.json({ success: true, config: data });
+  } catch (err) {
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
 
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { userId, ...fields } = body;
+    const {
+      user_id,
+      max_spend_per_tx,
+      manual_approval_above,
+      daily_budget,
+      monthly_budget,
+      allowed_merchants,
+      blocked_categories,
+      allowed_start_time,
+      allowed_end_time,
+      telegram_chat_id,
+    } = body;
 
-    if (!userId) {
-      return NextResponse.json({ success: false, error: "userId is required" }, { status: 400 });
+    if (!user_id) {
+      return NextResponse.json({ success: false, error: "User ID required" }, { status: 400 });
     }
 
-    const dbFields = { user_id: userId, updated_at: new Date() };
-    if (fields.maxSpendPerTx !== undefined) dbFields.max_spend_per_tx = fields.maxSpendPerTx;
-    if (fields.manualApprovalAbove !== undefined) dbFields.manual_approval_above = fields.manualApprovalAbove;
-    if (fields.dailyBudget !== undefined) dbFields.daily_budget = fields.dailyBudget;
-    if (fields.monthlyBudget !== undefined) dbFields.monthly_budget = fields.monthlyBudget;
-    if (fields.allowedMerchants !== undefined) dbFields.allowed_merchants = fields.allowedMerchants;
-    if (fields.blockedCategories !== undefined) dbFields.blocked_categories = fields.blockedCategories;
-    if (fields.allowedStartTime !== undefined) dbFields.allowed_start_time = fields.allowedStartTime;
-    if (fields.allowedEndTime !== undefined) dbFields.allowed_end_time = fields.allowedEndTime;
+    const { data, error } = await supabase
+      .from("policy_config")
+      .upsert([
+        {
+          user_id,
+          max_spend_per_tx,
+          manual_approval_above,
+          daily_budget,
+          monthly_budget,
+          allowed_merchants,
+          blocked_categories,
+          allowed_start_time,
+          allowed_end_time,
+          telegram_chat_id,
+        },
+      ])
+      .select();
 
-    const { error } = await supabase.from("policy_config").upsert(dbFields, { onConflict: "user_id" });
-    if (error) throw error;
+    if (error) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+    }
 
-    return NextResponse.json({ success: true, message: "Cloud-synced with Supabase successfully!" });
-  } catch (error) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    // Optional: Send a test confirmation message to user's telegram once saved
+    if (telegram_chat_id) {
+      await sendTelegramAlert(
+        telegram_chat_id,
+        "🎉 *Purchase Pal Connected!*\nYour policies and Telegram alerts have been successfully activated."
+      );
+    }
+
+    return NextResponse.json({ success: true, config: data[0] });
+  } catch (err) {
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
