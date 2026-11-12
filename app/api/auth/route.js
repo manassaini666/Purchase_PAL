@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import prisma from '../../lib/prisma'; // Apne project ka prisma import check kar lein
-import bcrypt from 'bcrypt'; // Agar passwords bcrypt se hashed hain
+import prisma from '@/lib/prisma';
+import bcrypt from 'bcrypt';
 
 export async function POST(request) {
   try {
@@ -13,8 +13,9 @@ export async function POST(request) {
       );
     }
 
-    // 1. Database mein user ko dhoondhein
+    // Database se user ko find karein
     const user = await prisma.user.findUnique({ where: { email } });
+    
     if (!user) {
       return NextResponse.json(
         { success: false, error: 'Invalid email or password' },
@@ -22,10 +23,9 @@ export async function POST(request) {
       );
     }
 
-    // 2. Password verify karein (Bcrypt use ho raha hai toh bcrypt.compare karein)
+    // Bcrypt se password strictly verify karein
     const isPasswordValid = await bcrypt.compare(password, user.password);
     
-    // Agar passwords plain text mein hain toh seedha check kar sakte hain: (password === user.password)
     if (!isPasswordValid) {
       return NextResponse.json(
         { success: false, error: 'Invalid email or password' },
@@ -33,16 +33,16 @@ export async function POST(request) {
       );
     }
 
-    // 3. Login Successful
-    return NextResponse.json(
-      { success: true, message: 'Login successful', user: { email: user.email } },
-      { status: 200 }
-    );
+    // Login successful
+    return NextResponse.json({
+      success: true,
+      message: 'Login successful',
+      user: { email: user.email }
+    });
 
   } catch (error) {
-    console.error('Login error:', error);
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
+      { success: false, error: error.message },
       { status: 500 }
     );
   }
